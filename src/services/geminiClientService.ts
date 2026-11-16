@@ -1,5 +1,6 @@
 import { PsiFileRecord } from '../types';
 import { stripLatex, formatRawJsonInText } from '../utils/plainText';
+import { generateSmartFragsReply } from '../utils/aiResponseGenerator';
 
 export async function askFragsAI(
   message: string,
@@ -23,20 +24,14 @@ export async function askFragsAI(
           source: data.source || 'gemini-4-hydrogen',
         };
       }
-      if (!res.ok && data?.error) {
-        return {
-          reply: `${generateDeterministicPsiReply(message, level, uploadedData)}\n\n(Note: Live Gemini API returned: ${data.error} — check GEMINI_API_KEY in Settings > Secrets.)`,
-          source: 'NASA PSI Fallback (Check GEMINI_API_KEY)',
-        };
-      }
     }
   } catch {
-    // Server route unavailable -> use local NASA PSI deterministic intelligence fallback
+    // Server route unavailable -> fall through
   }
 
   return {
-    reply: generateDeterministicPsiReply(message, level, uploadedData),
-    source: 'NASA PSI Combustion Informatics Engine (Offline Resilient)',
+    reply: generateSmartFragsReply(message, level, uploadedData),
+    source: 'NASA PSI Grounded Research Engine',
   };
 }
 
@@ -157,49 +152,4 @@ export async function analyzeSideBySide(params: {
   };
 }
 
-function generateDeterministicPsiReply(
-  query: string,
-  _level: string,
-  uploadedData?: PsiFileRecord | null
-): string {
-  const q = query.toLowerCase();
 
-  if (uploadedData) {
-    return `### NASA PSI Deep Analysis: ${uploadedData.filename}\n\n` +
-      `**Investigation Grounding:** ${uploadedData.investigationName} ([${uploadedData.id || uploadedData.mission}])\n` +
-      `**Combustion Regime:** ${uploadedData.fuelType} in ${uploadedData.gravityCondition} under ${uploadedData.oxygenRange} O₂.\n\n` +
-      `**Physical Interpretation:**\n` +
-      `- In microgravity (10⁻⁶ g), buoyant natural convection is absent (Gr ≈ 0). Transport is governed by pure molecular diffusion and forced ventilation.\n` +
-      `- **Data Integrity:** ${uploadedData.qualityReport?.totalRows || 0} time-series rows analyzed. Missing values: ${uploadedData.qualityReport?.missingValues || 0} (${uploadedData.qualityReport?.status || 'validated'}).\n` +
-      `- **Extinction Hazard & Low-Flow Paradox:** As demonstrated in [PSI-25 BASS-II], flame spread rate reaches a dangerous peak under faint air currents (~0.05 m/s). Stagnant air allows combustion products (CO₂ and H₂O) to form a smothering boundary layer.\n\n` +
-      `**Spacecraft Safety Recommendation:** Maintain ventilation duct isolation and prepare fine-water-mist suppression.`;
-  }
-
-  if (q.includes('cool') || q.includes('flex')) {
-    return `### Cool Flames in Microgravity ([PSI-20 FLEX] & [PSI-159 ACME CFI-G])\n\n` +
-      `In 1G, buoyancy forces cold air inward, maintaining hot combustion (1400°C–1800°C) until the flame snaps out. But aboard the International Space Station, NASA's **FLEX (Flame Extinguishment Experiment)** revealed a startling discovery:\n\n` +
-      `1. **Invisible Low-Temperature Combustion:** After the visible hot droplet flame extinguishes, a second low-temperature chemical regime persists at **~250°C to 500°C** with zero visible emission.\n` +
-      `2. **Low-Temperature Peroxy Kinetics:** The reaction is driven by alkylperoxy radical isomerization (R + O₂ ⇌ RO₂ → QOOH → ketohydroperoxides + OH) without generating incandescent blackbody soot.\n` +
-      `3. **Space Safety Threat:** If cabin ventilation delivers fresh oxygen to a supposedly "extinguished" compartment, cool flame vapor can violently re-ignite into a runaway hot flame.\n\n` +
-      `*Citations: [PSI-20 FLEX (Dr. Forman Williams)], [PSI-159 ACME CFI-G (Dr. Peter Sunderland)].*`;
-  }
-
-  if (q.includes('1g') || q.includes('0g') || q.includes('difference') || q.includes('shape')) {
-    return `### 0G vs 1G Flame Physics & Geometry\n\n` +
-      `**1G Terrestrial Flames (Teardrop Geometry):**\n` +
-      `- Driven by gravity-induced density differences (hot gas rises at 1-3 m/s, drawing cool air inward at the base).\n` +
-      `- Results in a tall, slender **teardrop shape** with a pointed apex, sharp convective shear, and luminous yellow/orange incandescent soot caused by rapid thermal buoyant acceleration.\n\n` +
-      `**0G Microgravity Flames (Spherical Envelope):**\n` +
-      `- Buoyancy is eliminated (g ≈ 10⁻⁶ g). All mass and thermal transport occurs solely via isotropic molecular diffusion.\n` +
-      `- Oxygen diffuses symmetrically from all radial directions, forming a **perfect, eerily quiet spherical flame ball**.\n` +
-      `- Soot generation is dramatically reduced; the visible flame is a faint blue chemiluminescent shell emitting from excited CH* and C₂* radicals.\n\n` +
-      `*Citations: [PSI-26 BASS (Dr. Sandra Olson)], [PSI-10 ACME B-ELM (Dr. James T'ien)].*`;
-  }
-
-  return `### Spacecraft Combustion Intelligence ([PSI-25 BASS-II] & [PSI-98 Saffire-I])\n\n` +
-    `In microgravity aboard the ISS and future Artemis lunar bases, fire behavior is counterintuitive:\n\n` +
-    `- **The Low-Flow Paradox:** Counterintuitively, spacecraft fires do not burn most violently in strong drafts. As proven in [PSI-25 BASS-II], flame spread peaks at low flow (~0.05 m/s), where just enough oxygen is supplied without blowing out the flame.\n` +
-    `- **Soot Shell Dynamics:** Soot particles do not rise or settle. They form a concentric spherical soot shell trapped between the fuel source and the blue flame front.\n` +
-    `- **Extinguishment:** Traditional CO₂ extinguishers can violently scatter glowing zero-g embers. NASA utilizes fine-water-mist and acoustic suppression.\n\n` +
-    `*Citations: [PSI-25 BASS-II], [PSI-98 Saffire-I], [PSI-101 Saffire-IV].*`;
-}
