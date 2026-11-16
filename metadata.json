@@ -1,0 +1,6 @@
+{
+  "name": "Flame in Freefall Hub",
+  "description": "Orbital fire drill and microgravity combustion safety dashboard featuring 3D first-person astronaut drills, 0G vs 1G flame particle simulator, NASA PSI informatics, and AI hazard prediction.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
