@@ -142,7 +142,7 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
     if (!queryText) setInputQuery('');
     setIsTyping(true);
 
-    const activeInvFocus = overrideInvId || selectedInvestigationId;
+    const activeInvFocus = selectedInvestigationId || 'all';
     const contextDataset = uploadedDataset || datasets.find(d => d.id === selectedDatasetId) || null;
 
     try {
@@ -353,7 +353,7 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
                 <span>Focus Investigation:</span>
               </span>
               <select
-                value={selectedInvestigationId}
+                value={selectedInvestigationId || 'all'}
                 onChange={(e) => onSelectInvestigationId(e.target.value)}
                 className="px-2.5 py-1 rounded bg-[#060913] border border-slate-700 text-cyan-300 font-mono text-xs max-w-md w-full"
               >

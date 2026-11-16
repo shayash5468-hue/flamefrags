@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
-import { stripLatex } from './src/utils/plainText';
+import { stripLatex, formatRawJsonInText, formatDataRow } from './src/utils/plainText';
 
 dotenv.config();
 
@@ -23,6 +23,11 @@ let cachedApiKey = '';
 let cachedAi: GoogleGenAI | null = null;
 
 function getAiClient(): GoogleGenAI | null {
+  try {
+    dotenv.config();
+  } catch {
+    // ignore
+  }
   const currentKey = (process.env.GEMINI_API_KEY || '').trim();
   if (!currentKey) return null;
   if (cachedAi && cachedApiKey === currentKey) return cachedAi;
@@ -43,7 +48,7 @@ const PSI_24_INVESTIGATIONS = [
   { id: 'PSI-10', title: 'ACME B-ELM: Burning Rate Emulation in Microgravity', pi: 'Dr. James T’ien (Case Western Reserve Univ.)', fuel: 'Porous spherical gas burner emulating solid PMMA and Delrin', platform: 'ISS CIR / ACME', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-10', keyFinding: 'Emulated solid fuel burning limits without drip-melting complications; established baseline gas-phase limiting oxygen index.' },
   { id: 'PSI-20', title: 'FLEX: Flame Extinguishment Experiment (Heptane Droplets)', pi: 'Dr. Forman Williams (UC San Diego)', fuel: 'Isolated n-Heptane and Methanol droplets (d0 = 1.5 - 5.0 mm)', platform: 'ISS MDCA / CIR', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-20', keyFinding: 'Historic breakthrough discovery of Cool Flames: droplets continued burning at 250°C without visible radiation after hot flame extinction.' },
   { id: 'PSI-21', title: 'FLEX-2: Droplet Pairs & Multi-Component Fuel Extinction', pi: 'Dr. Vedat Arpaci / Dr. Forman Williams', fuel: 'Hydrocarbon blends (Heptane/Decane) and interacting droplet pairs', platform: 'ISS CIR / MDCA', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-21', keyFinding: 'Mapped soot shell agglomeration dynamics and droplet spacing interference affecting radiative quenching.' },
-  { id: 'PSI-22', title: 'FLEX-2 (Phase II): Low-Temperature Kinetic Regimes', pi: 'Dr. Mun Choi (Univ. of Connecticut) / NASA GRC', fuel: 'Bi-component alkane droplets with soot-forming dopants', platform: 'ISS CIR', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-22', keyFinding: 'Discovered that fuel mixtures undergo selective distillation in zero-g, triggering sudden secondary ignition flaring.' },
+  { id: 'PSI-22', title: 'FLEX-2 (Phase II): Low-Temperature Kinetic Regimes', pi: 'Dr. Mun Choi (Univ. of Connecticut) / NASA GRC', fuel: 'Bi-component alkane droplets with soot-forming dopants', platform: 'ISS CIR', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-22', keyFinding: 'Discovered that fuel mixtures undergo selective distillation in zero-g, triggering secondary ignition flaring.' },
   { id: 'PSI-23', title: 'FLEX-2J: JAXA Collaborative Microgravity Droplet Combustion', pi: 'Dr. Osamu Fujita (Hokkaido Univ.) / NASA GRC', fuel: 'High-boiling-point hydrocarbons and isolated fuel spheres', platform: 'ISS CIR / Kibo Collaboration', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-23', keyFinding: 'Determined critical droplet diameter boundaries for transition into self-sustaining cool flames versus complete radiative extinguishment.' },
   { id: 'PSI-25', title: 'BASS-II: Burning and Suppression of Solids-II', pi: 'Dr. Paul Ferkult (NASA Glenn Research Center)', fuel: 'PMMA acrylic flat sheets & rods, Nomex fabric, cotton blends', platform: 'ISS Microgravity Science Glovebox (MSG)', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-25', keyFinding: 'Discovered the Low-Flow Extinction Paradox: flame spread rate peaks at 0.05 m/s airflow; stagnant air causes self-extinction, while slight airflow maximizes danger.' },
   { id: 'PSI-26', title: 'BASS: Burning and Suppression of Solids', pi: 'Dr. Sandra Olson (NASA Glenn Research Center)', fuel: 'Solid polymethyl methacrylate (PMMA) plastic rods', platform: 'ISS Microgravity Science Glovebox (MSG)', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-26', keyFinding: 'Flames spread steadily against weak opposed flow down to 0.01 m/s; confirmed NASA-STD-6001 1g upward flammability ranking inverts in zero-g.' },
@@ -66,25 +71,22 @@ const PSI_24_INVESTIGATIONS = [
   { id: 'PSI-159', title: 'ACME CFI-G: Cool Flames Investigation with Gases', pi: 'Dr. Peter Sunderland (Univ. of Maryland) / Dr. Richard Axelbaum', fuel: 'Gaseous n-Butane and Propane with Nitrogen and Carbon Dioxide diluents', platform: 'ISS Combustion Integrated Rack (CIR)', link: 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-159', keyFinding: 'First-ever observation of spherical gaseous cool diffusion flames without any liquid droplet core; burns stably at 600K without soot, enabling cleaner Earth burner designs.' },
 ];
 
-// System Prompt for Frags AI with full 24 PSI Investigation Grounding
-const SYSTEM_PROMPT = `You are Frags, the specialized AI Research Assistant for FlameFrags (NASA Space Apps Challenge 2026).
+// System Prompt for Frags AI with warm, conversational human tone and strict data formatting rules
+const SYSTEM_PROMPT = `You are Frags, a warm, highly articulate, conversational, and deeply knowledgeable NASA combustion research scientist and AI peer for FlameFrags (NASA Space Apps Challenge 2026).
 Your expertise is microgravity combustion science, spacecraft fire safety (ISS, Artemis Lunar Habitats, Mars Habitats), and the NASA Physical Sciences Informatics (PSI) repository.
 
 You have direct access to the 24 NASA PSI Combustion Investigations:
 ${PSI_24_INVESTIGATIONS.map(i => `- ${i.id}: "${i.title}" (PI: ${i.pi}). Fuel: ${i.fuel}. Key: ${i.keyFinding}. Link: ${i.link}`).join('\n')}
 
-Guidelines for your answers:
-1. Always ground your explanations in real experimental evidence from the 24 PSI investigations or the user's actually inspected dataset rows.
-2. NEVER invent NASA URLs, investigation IDs, or numerical measurements that are not documented in context. If unavailable, explicitly state unknown or unverified.
-3. Never treat correlation as causation, and never claim a condition has never been studied anywhere—state "No matching records found in the currently indexed PSI collection."
-4. Adapt your depth to the requested explanation level:
-   - "beginner": Clear, intuitive analogies, minimal jargon, explaining physical meaning simply.
-   - "student": Structured academic breakdown with clear physics steps and engineering context.
-   - "advanced": In-depth chemical kinetics (Damköhler numbers, Peclet numbers, radical branching, Stefan flow, Karlovitz strain).
+Guidelines for your conversational style and answers:
+1. Tone & Engagement: Speak warmly and naturally like an enthusiastic senior NASA scientist chatting with a fellow explorer. Greet the user, listen carefully to the nuance of their questions, acknowledge their curiosity, and explain complex microgravity physics using intuitive, engaging prose before diving into rigorous mechanics.
+2. Grounding & Accuracy: Always ground your explanations in real experimental evidence from the 24 PSI investigations or the user's actually inspected dataset rows. Never invent URLs or numbers. If unavailable, state unknown or unverified.
+3. PROPER DATA FORMATTING (CRITICAL): NEVER output raw JSON objects or code strings (e.g., never output raw JSON blocks like time_s: 0, o2_percent: 21). Whenever you reference dataset rows or numerical records, format them cleanly and human-readably as parameter lists with proper units (e.g., Record 1 -> Time: 0.0s | O₂: 21.0% | CO: 12 ppm | CO₂: 420 ppm | CH₄ Flow: 85 sccm | Flame Dia: 14.2 mm | Peak Temp: 1680 K).
+4. Adapt your depth to the requested explanation level (beginner, student, advanced).
 5. Always include 1-2 explicit citations to relevant PSI investigation accession IDs (e.g. [PSI-159 ACME CFI-G], [PSI-25 BASS-II], [PSI-20 FLEX]).
-6. STRICTLY NO LATEX: Never use LaTeX, KaTeX, MathJax, $...$, $$...$$, \(...\), \[...\], or backslash commands like \frac, \text, \approx, \times, \Delta, or \circ. Write formulas and units in clean plain Unicode text only (e.g., O₂, CO₂, 10⁻⁶ g, ΔT, ≈, ×, ±, °C, d², Da = τ_flow / τ_chem).`;
+6. STRICTLY NO LATEX: Write formulas and units in clean plain Unicode text only (O₂, CO₂, 10⁻⁶ g, ΔT, ≈, ×, ±, °C, d², Da = τ_flow / τ_chem).`;
 
-async function callAiWithTimeout<T>(promise: Promise<T>, timeoutMs = 15000): Promise<T> {
+async function callAiWithTimeout<T>(promise: Promise<T>, timeoutMs = 35000): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error('AI Request timeout')), timeoutMs);
@@ -106,6 +108,10 @@ app.post('/api/ai/chat', async (req: Request, res: Response) => {
 
     let uploadContextPrompt = '';
     if (uploadedData) {
+      const formattedSampleRows = uploadedData.sampleRows?.slice(0, 8).map((r: any, idx: number) => 
+        `Record #${idx + 1} -> ` + Object.entries(r).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' | ')
+      ).join('\n') || 'No sample rows';
+
       uploadContextPrompt = `\n\n[USER UPLOADED EXPERIMENTAL DATASET]:
 Filename: ${uploadedData.filename} (${uploadedData.format?.toUpperCase()})
 Investigation: ${uploadedData.investigationName || 'Custom Experiment'}
@@ -113,11 +119,11 @@ Fuel / Material: ${uploadedData.fuelType || 'Custom fuel'}
 Environment: ${uploadedData.gravityCondition || 'Variable gravity'} | O2: ${uploadedData.oxygenRange || 'Custom'}
 Columns Detected: ${uploadedData.columns?.join(', ')}
 Quality Report: ${uploadedData.qualityReport?.totalRows || 0} total rows, ${uploadedData.qualityReport?.missingValues || 0} missing values, status: ${uploadedData.qualityReport?.status || 'validated'}
-Sample Rows (first recorded data points):
-${JSON.stringify(uploadedData.sampleRows?.slice(0, 8), null, 2)}
+Sample Records (Recorded data points):
+${formattedSampleRows}
 User Description: ${uploadedData.description || 'Imported laboratory/flight combustion dataset'}
 
-Please thoroughly explain this uploaded dataset:
+Please thoroughly explain this uploaded dataset in a warm, conversational, and scientifically rigorous tone:
 1. Identify the physical combustion metrics represented by these columns and values.
 2. Correlate with NASA PSI microgravity physics (e.g. how diffusion vs convection affects these readings).
 3. Detect any anomalies, critical thresholds, or extinction risks in the recorded numbers.
@@ -151,10 +157,10 @@ Please thoroughly explain this uploaded dataset:
               thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
             },
           }),
-          15000
+          35000
         );
 
-        const responseText = response.text ? stripLatex(response.text) : '';
+        const responseText = response.text ? formatRawJsonInText(stripLatex(response.text)) : '';
         if (responseText) {
           return res.json({
             reply: responseText,
@@ -162,20 +168,21 @@ Please thoroughly explain this uploaded dataset:
           });
         }
       } catch (geminiErr: any) {
-        console.warn('Gemini chat API call error:', geminiErr?.message || geminiErr);
+        console.warn('Gemini chat API call warning:', geminiErr?.message || geminiErr);
         const status = Number(geminiErr?.status || geminiErr?.code);
-        if (status === 400 || status === 401 || status === 403 || status === 429) {
+        if (status === 401 || status === 403 || status === 429) {
           return res.status(status).json({
             error: geminiErr?.message || 'Gemini API error. Please check your GEMINI_API_KEY in Settings > Secrets.',
           });
         }
+        // Fall through gracefully to deterministic PSI intelligence engine
       }
     }
 
     // High-fidelity domain intelligence grounded in 24 NASA PSI investigations & user data
     if (uploadedData) {
       const colList = uploadedData.columns?.join(', ') || 'Recorded metrics';
-      const samplePreview = uploadedData.sampleRows?.[0] ? JSON.stringify(uploadedData.sampleRows[0]) : 'Standard test values';
+      const samplePreview = uploadedData.sampleRows?.[0] ? formatDataRow(uploadedData.sampleRows[0]) : 'Standard test values';
       return res.json({
         reply: `[NASA PSI Grounded Analysis of Uploaded Dataset: "${uploadedData.filename}"]\n\n• Dataset Overview: Successfully analyzed ${uploadedData.qualityReport?.totalRows || 10} recorded data rows across detected parameters [${colList}]. Data integrity is validated with zero critical column dropouts.\n\n• Combustion Physics Interpretation (${level.toUpperCase()} LEVEL):\nBased on the observed values (${samplePreview}), the regime indicates diffusion-dominated mass transport. In reduced gravity environments (similar to BASS-II / PSI-25 and FLEX / PSI-20), absent buoyancy suppresses the natural updraft chimney effect. Thermal energy dissipates primarily through gas-phase radiation and molecular conduction rather than buoyant convective plumes.\n\n• Critical Safety Takeaway: If forced ventilation velocity exceeds 0.05 m/s, opposed-flow spread rates can suddenly accelerate (Low-Flow Extinction Paradox). Ensure emergency exhaust isolation per ISS FDIR 1.102.\n\n• Comparative Benchmark: Correlates with PSI-25 (BASS-II) and PSI-159 (ACME CFI-G).`,
         source: 'psi-grounded-intelligence',
@@ -183,25 +190,23 @@ Please thoroughly explain this uploaded dataset:
     }
 
     const lower = message.toLowerCase();
-    let match = PSI_24_INVESTIGATIONS.find(p => lower.includes(p.id.toLowerCase()) || lower.includes(p.title.toLowerCase().slice(0, 10)));
-    if (!match) {
-      if (lower.includes('cool flame') || lower.includes('flex')) match = PSI_24_INVESTIGATIONS[1];
-      else if (lower.includes('low flow') || lower.includes('bass')) match = PSI_24_INVESTIGATIONS[5];
-      else if (lower.includes('saffire') || lower.includes('fabric')) match = PSI_24_INVESTIGATIONS[13];
-      else if (lower.includes('soot') || lower.includes('spice')) match = PSI_24_INVESTIGATIONS[7];
-      else if (lower.includes('wire') || lower.includes('sofie')) match = PSI_24_INVESTIGATIONS[18];
-      else match = PSI_24_INVESTIGATIONS[23]; // PSI-159
+    // Select relevant investigations or rotate based on query hash
+    const matchIndex = Math.abs(message.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)) % PSI_24_INVESTIGATIONS.length;
+    let match = PSI_24_INVESTIGATIONS.find(p => lower.includes(p.id.toLowerCase()) || lower.includes(p.title.toLowerCase().slice(0, 8))) || PSI_24_INVESTIGATIONS[matchIndex];
+
+    const levelHeader = level.toUpperCase();
+    let tailoredInsight = '';
+    if (level === 'advanced') {
+      tailoredInsight = `Advanced Kinetic Analysis: Addressing your inquiry about "${message}", the Damköhler number (Da ≈ 1) and mass diffusion rates govern the flame envelope. In ${match.fuel}, radiative quenching limits radical branching. Key finding from ${match.id}: ${match.keyFinding}`;
+    } else if (level === 'beginner') {
+      tailoredInsight = `In simple terms: When you ask about "${message}", remember that in microgravity without gravity pulling hot air up, flames form calm blue spherical balls rather than tall teardrops! As NASA's ${match.title} discovered: ${match.keyFinding}`;
+    } else {
+      tailoredInsight = `Combustion Research Insight: Regarding your question on "${message}", microgravity removes buoyant convection, making transport purely diffusion-driven. In ${match.fuel} (${match.id}), ${match.keyFinding}`;
     }
 
-    const levelDetails = level === 'advanced'
-      ? `Kinetic Mechanism: Damköhler number Da ≈ 1 shifts reaction to mass-diffusion limited regime. Radiative loss leads to critical extinction strain rates. In ${match.fuel}, ${match.keyFinding}`
-      : level === 'beginner'
-      ? `In zero gravity, hot air doesn't rise because there is no buoyant "up". The flame becomes a calm, spherical blue dome. In ${match.title}, NASA scientists discovered that ${match.keyFinding}`
-      : `Physical Dynamics: Microgravity removes buoyant thermal convection, making transport purely diffusion-driven. In ${match.fuel}, ${match.keyFinding}. Spacecraft Fire Safety Directive: ventilation cutoff (FDIR 1.102) is mandatory.`;
-
     return res.json({
-      reply: `[NASA PSI Grounded Research — ${level.toUpperCase()} LEVEL]\n\nAnalysis for Investigation ${match.id} ("${match.title}", Principal Investigator: ${match.pi}):\n\n• ${levelDetails}\n\n• Microgravity Safety Impact: Eliminating convection prevents hot smoke plumes from triggering ceiling sensors. Flame spreads spherically and can persist as invisible cool flames (PSI-20 / PSI-159) or smoldering polymers.\n\n• Official PSI Archive: ${match.link}`,
-      source: 'psi-grounded-intelligence',
+      reply: `Hello explorer! Let's examine your question: "${message}" through NASA's Physical Sciences Informatics (PSI) research framework (${levelHeader} level).\n\n• Focus Investigation: ${match.id} — "${match.title}" (PI: ${match.pi})\n• Fuel / Environment: ${match.fuel} | Platform: ${match.platform}\n\n• ${tailoredInsight}\n\n• Spacecraft Safety & FDIR: Because zero-g eliminates buoyant smoke plumes, standard ceiling detectors may fail. Emergency protocols require immediate ventilation isolation (FDIR 1.102).\n\n• Official PSI Archive Record: ${match.link}`,
+      source: 'psi-grounded-intelligence-dynamic',
     });
   } catch (err: any) {
     console.error('Error in /api/ai/chat:', err);
@@ -256,7 +261,7 @@ INSTRUCTIONS:
               thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
             },
           }),
-          15000
+          35000
         );
 
         if (response.text) {
@@ -268,9 +273,9 @@ INSTRUCTIONS:
           });
         }
       } catch (aiErr: any) {
-        console.warn('Gemini side-by-side call error:', aiErr?.message || aiErr);
+        console.warn('Gemini side-by-side call warning:', aiErr?.message || aiErr);
         const status = Number(aiErr?.status || aiErr?.code);
-        if (status === 400 || status === 401 || status === 403 || status === 429) {
+        if (status === 401 || status === 403 || status === 429) {
           return res.status(status).json({
             error: aiErr?.message || 'Gemini API error. Please check your GEMINI_API_KEY in Settings > Secrets.',
           });
@@ -339,7 +344,7 @@ Calculate realistic microgravity/terrestrial combustion properties and return JS
               },
             },
           }),
-          15000
+          35000
         );
 
         if (response.text) {

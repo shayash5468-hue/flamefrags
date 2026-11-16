@@ -1,5 +1,5 @@
 import { PsiFileRecord } from '../types';
-import { stripLatex } from '../utils/plainText';
+import { stripLatex, formatRawJsonInText } from '../utils/plainText';
 
 export async function askFragsAI(
   message: string,
@@ -19,7 +19,7 @@ export async function askFragsAI(
       const data = await res.json();
       if (res.ok && data && data.reply) {
         return {
-          reply: stripLatex(data.reply),
+          reply: formatRawJsonInText(stripLatex(data.reply)),
           source: data.source || 'gemini-4-hydrogen',
         };
       }

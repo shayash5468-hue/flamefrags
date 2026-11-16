@@ -178,3 +178,34 @@ export function stripLatex(input: string): string {
 
   return out;
 }
+
+export function formatDataRow(row: Record<string, any>): string {
+  if (!row || typeof row !== 'object') return String(row);
+  const parts: string[] = [];
+  for (const [key, val] of Object.entries(row)) {
+    const cleanKey = key
+      .replace(/_/g, ' ')
+      .replace(/\b[a-z]/g, c => c.toUpperCase());
+    parts.push(`${cleanKey}: ${val}`);
+  }
+  return parts.join(' | ');
+}
+
+export function formatRawJsonInText(text: string): string {
+  if (!text) return text;
+  let out = text.replace(/\{([^}]+)\}/g, (match) => {
+    try {
+      const parsed = JSON.parse(match);
+      if (typeof parsed === 'object' && parsed !== null) {
+        return Object.entries(parsed)
+          .map(([k, v]) => `${k.replace(/_/g, ' ').replace(/\b[a-z]/g, c => c.toUpperCase())}: ${v}`)
+          .join(' | ');
+      }
+    } catch {
+      // ignore
+    }
+    return match;
+  });
+  return out;
+}
+

@@ -30,9 +30,7 @@ export default function App() {
   const [datasets, setDatasets] = useState<PsiFileRecord[]>(NASA_PSI_FILES);
   const [selectedDatasetId, setSelectedDatasetId] = useState<string>(NASA_PSI_FILES[0]?.id || '');
   const [uploadedDataset, setUploadedDataset] = useState<PsiFileRecord | null>(null);
-  const [selectedInvestigationId, setSelectedInvestigationId] = useState<string>(
-    PSI_INVESTIGATIONS_REGISTRY[0]?.id || 'PSI-20'
-  );
+  const [selectedInvestigationId, setSelectedInvestigationId] = useState<string>('all');
 
   // Sub-view state
   const [dataUploadSubTab, setDataUploadSubTab] = useState<DataUploadSubTab>('files');
@@ -105,21 +103,15 @@ export default function App() {
     setDatasets(prev => [record, ...prev]);
     setSelectedDatasetId(record.id);
     setUploadedDataset(record);
-    if (record.investigationId) {
-      setSelectedInvestigationId(record.investigationId);
-    }
   };
 
   const handleExplainUploadedData = (record: PsiFileRecord) => {
     setUploadedDataset(record);
     setSelectedDatasetId(record.id);
-    if (record.investigationId) {
-      setSelectedInvestigationId(record.investigationId);
-    }
     setFragsAiMode('chat');
     setPendingAiRequest({
       query: `Analyze dataset ${record.filename} (${record.investigationName}): summarize columns, quality audit, fuel (${record.fuelType}), oxygen (${record.oxygenRange}), airflow (${record.flowRange}), and cite evidence limits.`,
-      investigationId: record.investigationId,
+      investigationId: 'all',
       nonce: Date.now(),
     });
     navigateToSection('frags-ai');
@@ -130,7 +122,6 @@ export default function App() {
     setSelectedDatasetId(datasetId);
     if (ds) {
       setUploadedDataset(ds);
-      if (ds.investigationId) setSelectedInvestigationId(ds.investigationId);
     }
     setFragsAiMode('detective');
     setPendingDetectiveTask({ task, datasetId, nonce: Date.now() });
@@ -139,26 +130,22 @@ export default function App() {
 
   const handleAskAiAboutInvestigation = (investigationId: string) => {
     const inv = PSI_INVESTIGATIONS_REGISTRY.find(i => i.id === investigationId);
-    setSelectedInvestigationId(investigationId);
     setFragsAiMode('chat');
     setPendingAiRequest({
       query: inv
         ? `Summarize verified NASA PSI metadata, physical regime, measurement gaps, and habitat relevance for ${inv.id} (${inv.title}).`
         : `Summarize verified NASA PSI details for ${investigationId}.`,
-      investigationId,
+      investigationId: 'all',
       nonce: Date.now(),
     });
     navigateToSection('frags-ai');
   };
 
-  const handleAskAiWithPrompt = (prompt: string, investigationIds?: string[]) => {
-    if (investigationIds && investigationIds[0]) {
-      setSelectedInvestigationId(investigationIds[0]);
-    }
+  const handleAskAiWithPrompt = (prompt: string, _investigationIds?: string[]) => {
     setFragsAiMode('chat');
     setPendingAiRequest({
       query: prompt,
-      investigationId: investigationIds?.[0],
+      investigationId: 'all',
       nonce: Date.now(),
     });
     navigateToSection('frags-ai');
