@@ -1,13 +1,13 @@
 import { PsiFileRecord } from '../types';
 import { stripLatex, formatRawJsonInText } from '../utils/plainText';
-import { generateSmartFragsReply } from '../utils/aiResponseGenerator';
+import { synthesizeFragsReply } from './fragsAiEngine';
 
 export async function askFragsAI(
   message: string,
   level: 'beginner' | 'student' | 'advanced' = 'student',
   history: { sender: string; text: string }[] = [],
   uploadedData?: PsiFileRecord | null
-): Promise<{ reply: string; source: string }> {
+): Promise<{ reply: string; source: string; suggestedQuestions?: string[]; citedInvestigationIds?: string[] }> {
   try {
     const res = await fetch('/api/ai/chat', {
       method: 'POST',
@@ -22,16 +22,21 @@ export async function askFragsAI(
         return {
           reply: formatRawJsonInText(stripLatex(data.reply)),
           source: data.source || 'gemini-4-hydrogen',
+          suggestedQuestions: data.suggestedQuestions,
+          citedInvestigationIds: data.citedInvestigationIds,
         };
       }
     }
   } catch {
-    // Server route unavailable -> fall through
+    // Fall through to universal synthesizer
   }
 
+  const synth = synthesizeFragsReply(message, level, history, uploadedData);
   return {
-    reply: generateSmartFragsReply(message, level, uploadedData),
-    source: 'NASA PSI Grounded Research Engine',
+    reply: synth.reply,
+    source: synth.source,
+    suggestedQuestions: synth.suggestedQuestions,
+    citedInvestigationIds: synth.citedInvestigationIds,
   };
 }
 

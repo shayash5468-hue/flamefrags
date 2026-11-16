@@ -5,7 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import { stripLatex, formatRawJsonInText, formatDataRow } from './src/utils/plainText';
-import { generateSmartFragsReply } from './src/utils/aiResponseGenerator';
+import { synthesizeFragsReply } from './src/services/fragsAiEngine';
 
 dotenv.config();
 
@@ -174,10 +174,12 @@ Please thoroughly explain this uploaded dataset in a warm, conversational, and s
       }
     }
 
-    const smartReply = generateSmartFragsReply(message, level, uploadedData);
+    const synth = synthesizeFragsReply(message, level, history, uploadedData);
     return res.json({
-      reply: formatRawJsonInText(stripLatex(smartReply)),
-      source: 'NASA PSI Grounded Research Engine',
+      reply: synth.reply,
+      source: synth.source,
+      suggestedQuestions: synth.suggestedQuestions,
+      citedInvestigationIds: synth.citedInvestigationIds,
     });
   } catch (err: any) {
     console.error('Error in /api/ai/chat:', err);
