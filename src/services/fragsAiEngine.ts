@@ -401,8 +401,14 @@ Per ISS Fault Detection, Isolation, and Recovery (FDIR 1.102) protocol, any ther
     };
   }
 
-  // 2. CASUAL GREETINGS & WHO ARE YOU
-  if (/^(hi|hello|hey|yo|greetings|howdy|sup|who are you|what can you do|introduce yourself)/i.test(q)) {
+  // 2. CASUAL GREETINGS & WHO ARE YOU (only when message is purely a greeting/intro)
+  const strippedGreeting = q.replace(/^(hi|hello|hey|yo|greetings|howdy|sup)[\s,!.:;-]*/i, '').trim();
+  const isPureGreeting =
+    strippedGreeting.length === 0 ||
+    /^(who are you|what can you do|introduce yourself|how are you|help me|start|menu)[?!.\s]*$/i.test(q) ||
+    /^(hi|hello|hey|yo|greetings|howdy|sup)\s+(frags|there|ai|bot)[?!.\s]*$/i.test(q);
+
+  if (isPureGreeting) {
     const text = `Hey there! I'm **Frags**, your AI research peer and combustion specialist for the NASA Physical Sciences Informatics (PSI) database.
 
 Think of me as your co-pilot for spacecraft fire safety and microgravity physics. I have direct access to all 24 indexed NASA spaceflight combustion investigations—from droplet experiments on the ISS (like **FLEX**) to large-scale burns on uncrewed Cygnus spacecraft (**Saffire**) and electrical harness tests (**SoFIE**).
@@ -430,7 +436,19 @@ What are you curious about today? Ask me anything!`;
   }
 
   // 3. 0G vs 1G / FLAME SHAPE / BUOYANCY
-  if (q.includes('0g') || q.includes('1g') || q.includes('shape') || q.includes('teardrop') || q.includes('spherical') || q.includes('blue flame') || q.includes('difference')) {
+  if (
+    q.includes('0g') ||
+    q.includes('1g') ||
+    q.includes('zero gravity') ||
+    q.includes('zero-g') ||
+    q.includes('buoyancy') ||
+    q.includes('shape') ||
+    q.includes('teardrop') ||
+    q.includes('spherical') ||
+    q.includes('blue flame') ||
+    (q.includes('blue') && q.includes('flame')) ||
+    q.includes('difference')
+  ) {
     let explanation = '';
     if (level === 'beginner') {
       explanation = `Imagine lighting a candle on Earth: the flame stretches upward into a tall, flickering, yellow teardrop. That happens because gravity pulls heavier cold air down, which forces hot air to rush upward like a chimney. 
