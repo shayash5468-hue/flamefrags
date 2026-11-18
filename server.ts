@@ -113,22 +113,18 @@ app.post('/api/ai/chat', async (req: Request, res: Response) => {
         `Record #${idx + 1} -> ` + Object.entries(r).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' | ')
       ).join('\n') || 'No sample rows';
 
-      uploadContextPrompt = `\n\n[USER UPLOADED EXPERIMENTAL DATASET]:
+      uploadContextPrompt = `\n\n[OPTIONAL REFERENCE DATASET CONTEXT (only analyze this if the user's question asks about the uploaded dataset or metrics)]:
 Filename: ${uploadedData.filename} (${uploadedData.format?.toUpperCase()})
 Investigation: ${uploadedData.investigationName || 'Custom Experiment'}
 Fuel / Material: ${uploadedData.fuelType || 'Custom fuel'}
 Environment: ${uploadedData.gravityCondition || 'Variable gravity'} | O2: ${uploadedData.oxygenRange || 'Custom'}
 Columns Detected: ${uploadedData.columns?.join(', ')}
 Quality Report: ${uploadedData.qualityReport?.totalRows || 0} total rows, ${uploadedData.qualityReport?.missingValues || 0} missing values, status: ${uploadedData.qualityReport?.status || 'validated'}
-Sample Records (Recorded data points):
+Sample Records (Formatted parameters):
 ${formattedSampleRows}
 User Description: ${uploadedData.description || 'Imported laboratory/flight combustion dataset'}
 
-Please thoroughly explain this uploaded dataset in a warm, conversational, and scientifically rigorous tone:
-1. Identify the physical combustion metrics represented by these columns and values.
-2. Correlate with NASA PSI microgravity physics (e.g. how diffusion vs convection affects these readings).
-3. Detect any anomalies, critical thresholds, or extinction risks in the recorded numbers.
-4. Provide actionable spaceflight safety conclusions.`;
+Answer the user's actual question below directly and naturally. If their question asks about this dataset, analyze the metrics, correlate with NASA PSI physics, and detect anomalies; otherwise answer their specific question directly without repeating a dataset summary.`;
     }
 
     const ai = getAiClient();

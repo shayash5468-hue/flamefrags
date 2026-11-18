@@ -30,46 +30,6 @@ import {
 } from 'lucide-react';
 import { synthesizeFragsReply } from '../services/fragsAiEngine';
 
-export type TopicCategory = 'all' | 'physics' | 'disasters' | 'materials' | 'suppression';
-
-export interface QuickTopic {
-  id: string;
-  category: 'physics' | 'disasters' | 'materials' | 'suppression';
-  label: string;
-  query: string;
-}
-
-export const TOPIC_CATEGORIES: { id: TopicCategory; label: string }[] = [
-  { id: 'all', label: 'All Topics' },
-  { id: 'physics', label: '🔬 Physics' },
-  { id: 'disasters', label: '🚀 Missions' },
-  { id: 'materials', label: '📦 Materials' },
-  { id: 'suppression', label: '🧯 Fire Safety' },
-];
-
-export const CURATED_TOPICS: QuickTopic[] = [
-  // Physics & Regimes
-  { id: '0g-1g', category: 'physics', label: '🔥 0G vs 1G Flame Ball', query: 'Why are flames in zero gravity spherical and blue instead of yellow teardrops?' },
-  { id: 'cool-flames', category: 'physics', label: '❄️ Cool Flames (250°C)', query: 'Explain how cool flames burn at 250°C without visible light or soot in FLEX' },
-  { id: 'low-flow', category: 'physics', label: '⚠️ Low-Flow Extinction Paradox', query: 'Explain the Low-Flow Extinction Paradox discovered in PSI-25 BASS-II' },
-  { id: 'spice-soot', category: 'physics', label: '🌫️ SPICE Soot Inception', query: 'Why does soot inception occur at 150K lower core temperatures in zero-g in PSI-39 SPICE?' },
-  { id: 'acme-efield', category: 'physics', label: '⚡ Electrostatic Flame Deflection', query: 'How does ACME E-FIELD use ionic wind voltage to steer and suppress microgravity flames?' },
-
-  // Spacecraft Disasters & Missions
-  { id: 'mir-1997', category: 'disasters', label: '🚀 Mir 1997 Oxygen Fire', query: 'What caused the 1997 fire on the Mir space station and how did the crew extinguish it?' },
-  { id: 'apollo-1', category: 'disasters', label: '🔴 Apollo 1 100% O₂ Flash', query: 'Why did the Apollo 1 command module flash burn so rapidly in 100% oxygen at 16.7 psi?' },
-  { id: 'apollo-13', category: 'disasters', label: '💥 Apollo 13 O₂ Tank Wire Arcing', query: 'How did electrical wire arcing inside Cryogenic Oxygen Tank 2 cause the Apollo 13 explosion?' },
-
-  // Materials & Habitats
-  { id: 'saffire-large', category: 'materials', label: '📦 Saffire 1m Fabric Burns', query: 'What did the large-scale Saffire experiments on Cygnus discover about spacecraft fires?' },
-  { id: 'sofie-wire', category: 'materials', label: '🔌 Wire Harness Jetting (SoFIE)', query: 'How does internal conductor overheating cause pin-hole jet flames in SoFIE MIST?' },
-  { id: 'artemis-lunar', category: 'materials', label: '🌕 Artemis Lunar Habitat (34% O₂)', query: 'Why will materials burn 240% faster in the Artemis exploration atmosphere (34% O2, 8.2 psia)?' },
-
-  // Firefighting & Suppression
-  { id: 'water-mist', category: 'suppression', label: '🧯 Fine Water Mist vs CO₂', query: 'Why are traditional CO2 extinguishers dangerous in zero gravity, and why is fine water mist used?' },
-  { id: 'depress-30kpa', category: 'suppression', label: '🚪 30 kPa Emergency Depress', query: 'How does emergency cabin depressurization extinguish active spacecraft fires within 8 seconds?' },
-];
-
 export type FragsAiMode = 'chat' | 'detective';
 
 export interface FragsAIViewProps {
@@ -143,11 +103,6 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([initialChatMessage]);
-  const [selectedTopicCategory, setSelectedTopicCategory] = useState<TopicCategory>('all');
-
-  const filteredTopics = selectedTopicCategory === 'all'
-    ? CURATED_TOPICS
-    : CURATED_TOPICS.filter(t => t.category === selectedTopicCategory);
 
   const [inputQuery, setInputQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -205,7 +160,14 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
     setIsTyping(true);
 
     const activeInvFocus = selectedInvestigationId || 'all';
-    const contextDataset = uploadedDataset || datasets.find(d => d.id === selectedDatasetId) || null;
+    const lowerQ = q.toLowerCase();
+    const isAskingAboutDataset =
+      /\b(dataset|upload|csv|txt|xlsx|rows?|columns?|metrics?|audit|sample|anomaly|parameters?)\b/i.test(lowerQ) ||
+      (uploadedDataset ? lowerQ.includes(uploadedDataset.filename.toLowerCase()) : false);
+    const activeDatasetForAi = isAskingAboutDataset
+      ? (uploadedDataset || datasets.find(d => d.id === selectedDatasetId) || null)
+      : null;
+    const contextDatasetForChain = activeDatasetForAi || uploadedDataset || null;
 
     try {
       const promptQuery =
@@ -214,7 +176,7 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
           : q;
 
       const historyContext = messages.slice(-4).map(m => ({ sender: m.sender, text: m.text }));
-      const result = await askFragsAI(promptQuery, explanationLevel, historyContext, contextDataset);
+      const result = await askFragsAI(promptQuery, explanationLevel, historyContext, activeDatasetForAi);
 
       setActiveModel(result.source);
 
@@ -222,7 +184,7 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
         originalQuestion: q,
         aiReply: result.reply,
         focusedInvestigationId: activeInvFocus,
-        uploadedData: contextDataset,
+        uploadedData: contextDatasetForChain,
         sourceLabel: result.source,
       });
 
@@ -249,7 +211,7 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
       ]);
     } catch (err) {
       console.error('Chat error:', err);
-      const synth = synthesizeFragsReply(q, explanationLevel, messages.slice(-4).map(m => ({ sender: m.sender, text: m.text })), contextDataset);
+      const synth = synthesizeFragsReply(q, explanationLevel, messages.slice(-4).map(m => ({ sender: m.sender, text: m.text })), activeDatasetForAi);
       setMessages(prev => [
         ...prev,
         {
@@ -263,7 +225,7 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
             originalQuestion: q,
             aiReply: synth.reply,
             focusedInvestigationId: activeInvFocus,
-            uploadedData: contextDataset,
+            uploadedData: contextDatasetForChain,
             sourceLabel: synth.source,
           }),
           suggestedQuestions: synth.suggestedQuestions,
@@ -572,47 +534,6 @@ export const FragsAIView: React.FC<FragsAIViewProps> = ({
                     </div>
                   )}
                   <div ref={chatEndRef} />
-                </div>
-
-                {/* Categorized Quick Topic Prompts Bar */}
-                <div className="bg-[#070c18] border-t border-slate-800/80 p-2.5 space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs font-mono">
-                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                      <span className="text-slate-300 font-semibold text-[11px]">Explore Topics:</span>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-[10px] font-mono flex-wrap">
-                      {TOPIC_CATEGORIES.map(cat => (
-                        <button
-                          key={cat.id}
-                          onClick={() => {
-                            sound.playClick();
-                            setSelectedTopicCategory(cat.id);
-                          }}
-                          className={`px-2 py-0.5 rounded transition cursor-pointer ${
-                            selectedTopicCategory === cat.id
-                              ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/80 font-semibold'
-                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent'
-                          }`}
-                        >
-                          {cat.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar text-xs font-mono">
-                    {filteredTopics.map((topic) => (
-                      <button
-                        key={topic.id}
-                        onClick={() => handleSendMessage(topic.query)}
-                        className="px-2.5 py-1 rounded-md bg-slate-900/90 hover:bg-cyan-950 text-slate-300 hover:text-cyan-300 border border-slate-800 hover:border-cyan-700/70 shrink-0 transition text-xs cursor-pointer flex items-center gap-1"
-                      >
-                        <span>{topic.label}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 {/* Input Bar */}
