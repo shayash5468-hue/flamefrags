@@ -21,8 +21,8 @@ export function buildApollo13Scene(
   const cmHullMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x3b424d,
-      roughness: 0.55,
-      metalness: 0.52,
+      roughness: 0.54,
+      metalness: 0.54,
       bumpMap: textures.brushedMetalBump,
       bumpScale: 0.004,
       side: THREE.DoubleSide,
@@ -30,9 +30,9 @@ export function buildApollo13Scene(
   );
   const aluminumMat = track(
     new THREE.MeshStandardMaterial({
-      color: 0xb0bac5,
-      roughness: 0.28,
-      metalness: 0.88,
+      color: 0xb6c0cb,
+      roughness: 0.26,
+      metalness: 0.9,
       bumpMap: textures.brushedMetalBump,
       bumpScale: 0.003,
     })
@@ -40,24 +40,42 @@ export function buildApollo13Scene(
   const darkMetalMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x1e293b,
-      roughness: 0.58,
-      metalness: 0.65,
+      roughness: 0.56,
+      metalness: 0.68,
+      side: THREE.DoubleSide,
+    })
+  );
+  const spsNozzleMat = track(
+    new THREE.MeshStandardMaterial({
+      color: 0x2a2f38,
+      roughness: 0.36,
+      metalness: 0.85,
+      side: THREE.DoubleSide,
     })
   );
   const inconelTankMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xd1d5db,
-      roughness: 0.22,
-      metalness: 0.92,
+      roughness: 0.2,
+      metalness: 0.94,
     })
   );
   const goldFoilMat = track(
     new THREE.MeshStandardMaterial({
+      color: 0xeab308,
+      roughness: 0.32,
+      metalness: 0.88,
+      bumpMap: textures.kaptonFoilBump,
+      bumpScale: 0.018,
+    })
+  );
+  const copperFoilMat = track(
+    new THREE.MeshStandardMaterial({
       color: 0xd97706,
       roughness: 0.34,
-      metalness: 0.85,
-      bumpMap: textures.quiltedBlanketBump,
-      bumpScale: 0.01,
+      metalness: 0.86,
+      bumpMap: textures.kaptonFoilBump,
+      bumpScale: 0.016,
     })
   );
   const betaClothMat = track(
@@ -68,6 +86,17 @@ export function buildApollo13Scene(
       map: textures.quiltedBlanketColor,
       bumpMap: textures.quiltedBlanketBump,
       bumpScale: 0.008,
+    })
+  );
+  const glassMat = track(
+    new THREE.MeshPhysicalMaterial({
+      color: 0x93c5fd,
+      roughness: 0.08,
+      metalness: 0.06,
+      transparent: true,
+      opacity: 0.34,
+      depthWrite: false,
+      side: THREE.DoubleSide,
     })
   );
   const consoleNominalMat = track(
@@ -100,15 +129,15 @@ export function buildApollo13Scene(
   const o2PipeMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
-      roughness: 0.3,
-      metalness: 0.75,
+      roughness: 0.28,
+      metalness: 0.78,
     })
   );
   const h2PipeMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xf59e0b,
-      roughness: 0.32,
-      metalness: 0.72,
+      roughness: 0.3,
+      metalness: 0.74,
     })
   );
   const ductTapeMat = track(
@@ -129,15 +158,14 @@ export function buildApollo13Scene(
   // 1. Command Module "Odyssey" Interior Frame, Ceiling Bulkhead, Structural Rings & Couches
   const cmGroup = new THREE.Group();
   const cmShell = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(1.12, 1.78, 2.2, 30, 1, true, -Math.PI * 0.65, Math.PI * 1.3)),
+    track(new THREE.CylinderGeometry(1.12, 1.78, 2.2, 32, 1, true, -Math.PI * 0.65, Math.PI * 1.3)),
     cmHullMat
   );
   cmShell.position.set(0, 1.38, 0.05);
   cmGroup.add(cmShell);
 
-  // Seal top of Odyssey CM with Forward Docking Tunnel & Overhead Cockpit Lights
   const cmCeiling = new THREE.Mesh(
-    track(new THREE.CircleGeometry(1.16, 30)),
+    track(new THREE.CircleGeometry(1.16, 32)),
     cmHullMat
   );
   cmCeiling.rotation.x = Math.PI / 2;
@@ -161,7 +189,6 @@ export function buildApollo13Scene(
     cmGroup.add(lamp);
   });
 
-  // Circuit breaker & telemetry wall panel on Odyssey starboard bulkhead
   const odysseyBreakerMat = track(
     new THREE.MeshStandardMaterial({
       map: textures.breakerPanel,
@@ -180,14 +207,13 @@ export function buildApollo13Scene(
   cmGroup.add(odysseyBreaker);
 
   const cmDeck = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(1.78, 1.8, 0.08, 30)),
+    track(new THREE.CylinderGeometry(1.78, 1.8, 0.08, 32)),
     darkMetalMat
   );
   cmDeck.position.set(0, 0.28, 0.05);
   cmDeck.receiveShadow = true;
   cmGroup.add(cmDeck);
 
-  // Structural ribs inside Odyssey
   for (let i = 0; i < 3; i++) {
     const t = i / 2;
     const r = THREE.MathUtils.lerp(1.72, 1.15, t);
@@ -201,14 +227,18 @@ export function buildApollo13Scene(
     cmGroup.add(rib);
   }
 
-  // Crew couches in Odyssey with Beta-cloth pads & restraints
+  // Crew couches in Odyssey with Beta-cloth contoured pads & restraints
   const seatGeo = track(new THREE.BoxGeometry(0.36, 0.52, 0.08));
+  const seatBaseGeo = track(new THREE.BoxGeometry(0.34, 0.07, 0.3));
   const strapGeo = track(new THREE.BoxGeometry(0.03, 0.42, 0.015));
   [-0.45, 0, 0.45].forEach((cx) => {
     const seat = new THREE.Mesh(seatGeo, betaClothMat);
     seat.position.set(cx, 0.72, 0.45);
     seat.rotation.x = -0.35;
-    cmGroup.add(seat);
+    const seatBase = new THREE.Mesh(seatBaseGeo, betaClothMat);
+    seatBase.position.set(cx, 0.48, 0.24);
+    seatBase.rotation.x = 0.2;
+    cmGroup.add(seat, seatBase);
 
     [-0.08, 0.08].forEach((sx) => {
       const strap = new THREE.Mesh(strapGeo, darkMetalMat);
@@ -239,7 +269,6 @@ export function buildApollo13Scene(
   mdcFrame.rotation.x = 0.22;
   cmConsoleAnchor.add(mdcFrame);
 
-  // Guard rail & Instanced physical toggle switches
   const guardRail = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.01, 0.01, 1.18, 10)),
     aluminumMat
@@ -269,7 +298,6 @@ export function buildApollo13Scene(
   cmSwitches.instanceMatrix.needsUpdate = true;
   cmConsoleAnchor.add(cmSwitches);
 
-  // DSKY below Odyssey console
   const dsky = new THREE.Mesh(
     track(new THREE.BoxGeometry(0.24, 0.2, 0.09)),
     darkMetalMat
@@ -279,36 +307,98 @@ export function buildApollo13Scene(
   cmConsoleAnchor.add(dsky);
   root.add(cmConsoleAnchor);
 
-  // 3. Service Module Bay 4 Cutaway Structure with Cylindrical Fuselage Shell, Radiators & RCS Quad
+  // 3. Service Module Cylindrical Hull, SPS Engine Bell (LatheGeometry), High-Gain 4-Dish Boom & Bay 4
   const smGroup = new THREE.Group();
   smGroup.position.set(-0.85, 1.25, -0.78);
 
-  // Partial Service Module cylindrical fuselage backing & top/bottom end caps so Bay 4 sits in solid hardware
+  // Outer SM cylindrical body (open across Sector 4 for cutaway visibility)
   const smFuselage = new THREE.Mesh(
     track(
       new THREE.CylinderGeometry(
-        0.58,
-        0.58,
-        1.26,
-        24,
+        0.6,
+        0.6,
+        1.32,
+        28,
         1,
         false,
         Math.PI * 0.28,
-        Math.PI * 0.92
+        Math.PI * 0.96
       )
     ),
     cmHullMat
   );
-  smFuselage.position.set(0.05, -0.02, -0.04);
+  smFuselage.position.set(0.05, 0.0, -0.04);
   smGroup.add(smFuselage);
+
+  // Aft Service Module Bulkhead & Gimbaled SPS Rocket Engine Bell (LatheGeometry)
+  const smAftPlate = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.61, 0.56, 0.08, 28)),
+    darkMetalMat
+  );
+  smAftPlate.position.set(0.05, -0.68, -0.04);
+  smGroup.add(smAftPlate);
+
+  const spsPoints = [
+    new THREE.Vector2(0.09, 0.0),
+    new THREE.Vector2(0.11, -0.08),
+    new THREE.Vector2(0.22, -0.24),
+    new THREE.Vector2(0.32, -0.44),
+    new THREE.Vector2(0.36, -0.56),
+  ];
+  const spsBell = new THREE.Mesh(
+    track(new THREE.LatheGeometry(spsPoints, 28)),
+    spsNozzleMat
+  );
+  spsBell.position.set(0.05, -0.72, -0.04);
+  smGroup.add(spsBell);
+
+  // S-Band 4-Dish High-Gain Deep Space Antenna Boom deployed off aft rim
+  const hgBoom = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.015, 0.018, 0.42, 8)),
+    aluminumMat
+  );
+  hgBoom.rotation.z = 0.72;
+  hgBoom.position.set(0.46, -0.82, -0.22);
+  smGroup.add(hgBoom);
+  const dishMat = track(
+    new THREE.MeshStandardMaterial({
+      color: 0xcbd5e1,
+      roughness: 0.28,
+      metalness: 0.88,
+      side: THREE.DoubleSide,
+    })
+  );
+  [
+    [-0.07, -0.07],
+    [0.07, -0.07],
+    [-0.07, 0.07],
+    [0.07, 0.07],
+  ].forEach(([dx, dz]) => {
+    const dish = new THREE.Mesh(
+      track(new THREE.ConeGeometry(0.06, 0.045, 14, 1, true)),
+      dishMat
+    );
+    dish.position.set(0.62 + dx, -0.96, -0.22 + dz);
+    dish.rotation.x = Math.PI;
+    smGroup.add(dish);
+  });
 
   // White/Silver Thermal Radiator Panels flanking SM Sector 4
   const smRadiator = new THREE.Mesh(
-    track(new THREE.BoxGeometry(0.04, 1.18, 0.54)),
+    track(new THREE.BoxGeometry(0.04, 1.2, 0.56)),
     betaClothMat
   );
-  smRadiator.position.set(0.42, 0.0, -0.26);
+  smRadiator.position.set(0.44, 0.0, -0.26);
   smGroup.add(smRadiator);
+
+  // Umbilical Fairing Bridge linking Service Module Sector 4 to Odyssey CM
+  const umbilicalBridge = new THREE.Mesh(
+    track(new THREE.BoxGeometry(0.42, 0.22, 0.16)),
+    aluminumMat
+  );
+  umbilicalBridge.position.set(0.44, 0.36, 0.22);
+  umbilicalBridge.rotation.y = 0.45;
+  smGroup.add(umbilicalBridge);
 
   // RCS Thruster Quad Pod mounted on Service Module side
   const rcsPod = new THREE.Mesh(
@@ -358,17 +448,17 @@ export function buildApollo13Scene(
     smGroup.add(longeron);
   });
 
-  // Lower shelf Cryogenic Hydrogen (H2) Tanks 1 & 2 for authentic Sector 4 layout
+  // Lower shelf Cryogenic Hydrogen (H2) Tanks 1 & 2 wrapped in Kapton Foil
   [-0.18, 0.18].forEach((hz) => {
     const h2Tank = new THREE.Mesh(
       track(new THREE.SphereGeometry(0.13, 18, 14)),
-      goldFoilMat
+      copperFoilMat
     );
     h2Tank.position.set(0.05, -0.52, hz);
     smGroup.add(h2Tank);
   });
 
-  // Detachable Bay 4 Outer Honeycomb Panel (with ribbed inner face)
+  // Detachable Bay 4 Outer Honeycomb Panel (blows off during SM rupture!)
   const bay4OuterPanel = new THREE.Group();
   bay4OuterPanel.position.set(-0.42, 0.1, 0);
   const outerSkin = new THREE.Mesh(
@@ -384,7 +474,7 @@ export function buildApollo13Scene(
   smGroup.add(bay4OuterPanel);
   root.add(smGroup);
 
-  // 4. ANCHOR 1: Cryogenic Oxygen Tank No. 2 (Cutaway with Heater, 28V Switch, Teflon Coil & Fan)
+  // 4. ANCHOR 1: Cryogenic Oxygen Tank No. 2 (Cutaway with Inner Vessel, Heater, 28V Switch, Teflon & Fan)
   const o2Tank2Anchor = new THREE.Group();
   o2Tank2Anchor.name = 'Cryogenic Oxygen Tank No. 2';
   o2Tank2Anchor.position.set(-0.92, 1.15, -0.82);
@@ -403,7 +493,13 @@ export function buildApollo13Scene(
   tank2Outer.rotation.y = -Math.PI * 0.35;
   o2Tank2Anchor.add(tank2Outer);
 
-  // Neck fill/vent standpipe & collar flange atop Tank 2
+  const tank2Inner = new THREE.Mesh(
+    track(new THREE.SphereGeometry(0.142, 20, 16, 0, Math.PI * 1.35)),
+    copperFoilMat
+  );
+  tank2Inner.rotation.y = -Math.PI * 0.35;
+  o2Tank2Anchor.add(tank2Inner);
+
   const standpipe = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.026, 0.026, 0.14, 12)),
     aluminumMat
@@ -424,7 +520,6 @@ export function buildApollo13Scene(
   );
   o2Tank2Anchor.add(heaterCore);
 
-  // 28V Bimetallic Thermostatic Switch block & damaged Teflon wire coil
   const switchBlock = new THREE.Mesh(
     track(new THREE.BoxGeometry(0.04, 0.04, 0.03)),
     darkMetalMat
@@ -447,19 +542,34 @@ export function buildApollo13Scene(
   }
   o2Tank2Anchor.add(fanGroup);
 
+  // Dual-layer rupture flash + cryo venting cloud
   const ruptureMat = track(
     new THREE.MeshBasicMaterial({
-      color: 0xfb923c,
+      color: 0xf97316,
       transparent: true,
       opacity: 0,
       depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  const ruptureCoreMat = track(
+    new THREE.MeshBasicMaterial({
+      color: 0xfef08a,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
     })
   );
   const ruptureSphere = new THREE.Mesh(
-    track(new THREE.IcosahedronGeometry(0.24, 2)),
+    track(new THREE.IcosahedronGeometry(0.28, 2)),
     ruptureMat
   );
-  o2Tank2Anchor.add(ruptureSphere);
+  const ruptureCore = new THREE.Mesh(
+    track(new THREE.IcosahedronGeometry(0.14, 1)),
+    ruptureCoreMat
+  );
+  o2Tank2Anchor.add(ruptureSphere, ruptureCore);
 
   // Apollo 14+ Upgrade Hardware: Isolated Tank 3 & 400 Ah Aux Battery
   const apollo14UpgradeGroup = new THREE.Group();
@@ -503,7 +613,6 @@ export function buildApollo13Scene(
     fuelCellsAnchor.add(fc);
     fcMeshes.push(fc);
 
-    // Fuel cell radiator collar & reactant cap
     const cap = new THREE.Mesh(
       track(new THREE.CylinderGeometry(0.095, 0.095, 0.03, 16)),
       aluminumMat
@@ -512,7 +621,6 @@ export function buildApollo13Scene(
     fuelCellsAnchor.add(cap);
   }
 
-  // Dual O2 + H2 cryo manifolds connecting Sector 4 shelves to Fuel Cells
   const manifoldCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-0.2, -0.4, -0.24),
     new THREE.Vector3(-0.18, -0.15, -0.1),
@@ -534,20 +642,19 @@ export function buildApollo13Scene(
   fuelCellsAnchor.add(manifoldPipe, h2Manifold);
   root.add(fuelCellsAnchor);
 
-  // 6. ANCHOR 4: Lunar Module "Aquarius" Lifeboat, Tunnel Latches & CO2 "Mailbox"
+  // 6. ANCHOR 4: Grumman Lunar Module "Aquarius" Ascent Stage, Viewports, RCS Quads, Tunnel & CO2 "Mailbox"
   const lmAnchor = new THREE.Group();
   lmAnchor.name = 'Lunar Module Aquarius & CO2 Mailbox';
   lmAnchor.position.set(0.88, 1.38, 0.28);
 
   const tunnel = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.32, 0.32, 0.65, 22, 1, true)),
+    track(new THREE.CylinderGeometry(0.32, 0.32, 0.65, 24, 1, true)),
     aluminumMat
   );
   tunnel.rotation.z = Math.PI / 2;
   tunnel.position.set(-0.42, 0, -0.12);
   lmAnchor.add(tunnel);
 
-  // Instanced docking tunnel capture latches around ring
   const dockLatches = new THREE.InstancedMesh(
     track(new THREE.BoxGeometry(0.04, 0.025, 0.03)),
     goldFoilMat,
@@ -564,19 +671,91 @@ export function buildApollo13Scene(
   dockLatches.instanceMatrix.needsUpdate = true;
   lmAnchor.add(dockLatches);
 
+  // Faceted Grumman Ascent Stage Crew Cabin Hull + Kapton Foil Belly Skirt
   const lmShell = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.68, 0.72, 1.35, 8, 1, true)),
+    track(new THREE.CylinderGeometry(0.68, 0.74, 1.35, 8, 1, true)),
     track(
       new THREE.MeshStandardMaterial({
-        color: 0x334155,
-        roughness: 0.6,
-        metalness: 0.5,
+        color: 0x3b4453,
+        roughness: 0.56,
+        metalness: 0.54,
+        bumpMap: textures.brushedMetalBump,
+        bumpScale: 0.004,
         side: THREE.DoubleSide,
       })
     )
   );
   lmShell.position.set(0.28, -0.05, 0);
   lmAnchor.add(lmShell);
+
+  // Exterior Kapton gold-foil wrap around Aquarius lower ascent bay & aft equipment deck
+  const lmFoilWrap = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.75, 0.76, 0.44, 8, 1, true)),
+    goldFoilMat
+  );
+  lmFoilWrap.position.set(0.28, -0.5, 0);
+  lmAnchor.add(lmFoilWrap);
+
+  // Signature Grumman Triangular Forward Landing Viewports (recessed canted frames + glass)
+  const triShape = new THREE.Shape();
+  triShape.moveTo(-0.14, 0.08);
+  triShape.lineTo(0.14, 0.08);
+  triShape.lineTo(0.02, -0.1);
+  triShape.closePath();
+  const triGlassGeo = track(new THREE.ShapeGeometry(triShape));
+  [-0.22, 0.22].forEach((wz) => {
+    const winFrame = new THREE.Mesh(
+      track(new THREE.BoxGeometry(0.05, 0.24, 0.28)),
+      darkMetalMat
+    );
+    winFrame.position.set(0.92, 0.16, wz);
+    winFrame.rotation.z = 0.22;
+    const winGlass = new THREE.Mesh(triGlassGeo, glassMat);
+    winGlass.position.set(0.95, 0.16, wz);
+    winGlass.rotation.y = Math.PI / 2;
+    if (wz < 0) winGlass.scale.x = -1;
+    lmAnchor.add(winFrame, winGlass);
+  });
+
+  // LM Exterior RCS Thruster Quad Outriggers + Overhead S-Band Dish
+  [-0.78, 0.78].forEach((rz) => {
+    const boom = new THREE.Mesh(
+      track(new THREE.CylinderGeometry(0.022, 0.022, 0.26, 8)),
+      aluminumMat
+    );
+    boom.rotation.x = Math.PI / 2;
+    boom.position.set(0.28, 0.25, rz);
+    const pod = new THREE.Mesh(
+      track(new THREE.BoxGeometry(0.12, 0.14, 0.12)),
+      goldFoilMat
+    );
+    pod.position.set(0.28, 0.25, rz * 1.15);
+    const upNoz = new THREE.Mesh(
+      track(new THREE.ConeGeometry(0.028, 0.075, 10, 1, true)),
+      darkMetalMat
+    );
+    upNoz.position.set(0.28, 0.35, rz * 1.15);
+    const dnNoz = new THREE.Mesh(
+      track(new THREE.ConeGeometry(0.028, 0.075, 10, 1, true)),
+      darkMetalMat
+    );
+    dnNoz.rotation.x = Math.PI;
+    dnNoz.position.set(0.28, 0.15, rz * 1.15);
+    lmAnchor.add(boom, pod, upNoz, dnNoz);
+  });
+
+  const lmDishMast = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.015, 0.015, 0.28, 8)),
+    aluminumMat
+  );
+  lmDishMast.position.set(0.45, 0.78, -0.2);
+  const lmDish = new THREE.Mesh(
+    track(new THREE.ConeGeometry(0.16, 0.08, 18, 1, true)),
+    dishMat
+  );
+  lmDish.position.set(0.45, 0.92, -0.2);
+  lmDish.rotation.x = -0.5;
+  lmAnchor.add(lmDishMast, lmDish);
 
   const lmFloor = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.69, 0.69, 0.05, 8)),
@@ -585,7 +764,6 @@ export function buildApollo13Scene(
   lmFloor.position.set(0.28, -0.7, 0);
   lmAnchor.add(lmFloor);
 
-  // Seal top of Lunar Module "Aquarius" with Overhead Hatch, Docking Ring & PGNS Guidance Display
   const lmCeiling = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.69, 0.69, 0.05, 8)),
     darkMetalMat
@@ -666,7 +844,7 @@ export function buildApollo13Scene(
   root.add(lmAnchor);
 
   // 7. Animated O2 / Power / CO2 Flow Particles (InstancedMesh)
-  const particleCount = 42;
+  const particleCount = 44;
   const flowMesh = new THREE.InstancedMesh(
     track(new THREE.SphereGeometry(0.016, 8, 8)),
     track(new THREE.MeshBasicMaterial({ color: 0xffffff })),
@@ -689,7 +867,6 @@ export function buildApollo13Scene(
   );
   root.add(spaceBackdrop);
 
-  // Distant sunlit Earth sphere visible beyond forward cutaway
   const earthSphere = new THREE.Mesh(
     track(new THREE.SphereGeometry(2.6, 28, 20)),
     track(
@@ -703,7 +880,6 @@ export function buildApollo13Scene(
   earthSphere.rotation.y = 0.6;
   root.add(earthSphere);
 
-  // Distant cratered Moon sphere on cislunar return trajectory
   const moonSphere = new THREE.Mesh(
     track(new THREE.SphereGeometry(1.15, 20, 16)),
     track(
@@ -737,7 +913,6 @@ export function buildApollo13Scene(
   );
   root.add(stars);
 
-  // Contact shadow disc
   const shadowDisc = new THREE.Mesh(
     track(new THREE.PlaneGeometry(5.2, 5.2)),
     track(
@@ -753,7 +928,6 @@ export function buildApollo13Scene(
   shadowDisc.position.set(0, 0.22, -0.2);
   root.add(shadowDisc);
 
-  // Freeze static matrices for optimal VR performance
   [cmGroup, stars, spaceBackdrop, earthSphere, moonSphere].forEach((grp) => {
     grp.traverse((obj) => {
       if (obj instanceof THREE.Mesh || obj instanceof THREE.Points) {
@@ -820,14 +994,18 @@ export function buildApollo13Scene(
       0.06
     );
 
-    if (state === 'ignition') {
-      ruptureMat.opacity = 0.72 + Math.sin(elapsed * 20) * 0.2;
-      ruptureSphere.scale.setScalar(1 + Math.sin(elapsed * 16) * 0.22);
-    } else if (state === 'escalation') {
-      ruptureMat.opacity = 0.25;
-      ruptureSphere.scale.setScalar(1.3);
+    if (state === 'ignition' && !isUpgraded) {
+      ruptureMat.opacity = 0.68 + Math.sin(elapsed * 20) * 0.2;
+      ruptureCoreMat.opacity = 0.88;
+      ruptureSphere.scale.setScalar(1 + Math.sin(elapsed * 16) * 0.24);
+      ruptureCore.scale.setScalar(1 + Math.cos(elapsed * 22) * 0.18);
+    } else if (state === 'escalation' && !isUpgraded) {
+      ruptureMat.opacity = 0.26;
+      ruptureCoreMat.opacity = 0.15;
+      ruptureSphere.scale.setScalar(1.32);
     } else {
       ruptureMat.opacity = 0;
+      ruptureCoreMat.opacity = 0;
     }
 
     fcMeshes.forEach((fc, idx) => {
@@ -850,7 +1028,7 @@ export function buildApollo13Scene(
     for (let i = 0; i < particleCount; i++) {
       const t = (elapsed * 0.45 + i / particleCount) % 1;
       if (i < 22) {
-        if (state === 'escalation' || state === 'ignition') {
+        if ((state === 'escalation' || state === 'ignition') && !isUpgraded) {
           _dummy.position.set(
             -0.92 - t * 0.85,
             1.15 + Math.sin(i * 2.1) * 0.15,

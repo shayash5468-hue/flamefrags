@@ -21,6 +21,8 @@ export function buildMirScene(
   const linerMat = track(
     new THREE.MeshStandardMaterial({
       map: textures.mirPanelColor,
+      bumpMap: textures.mirPanelBump,
+      bumpScale: 0.015,
       roughness: 0.78,
       metalness: 0.08,
       side: THREE.DoubleSide,
@@ -33,14 +35,14 @@ export function buildMirScene(
       metalness: 0.05,
       map: textures.quiltedBlanketColor,
       bumpMap: textures.quiltedBlanketBump,
-      bumpScale: 0.008,
+      bumpScale: 0.009,
     })
   );
   const frameMat = track(
     new THREE.MeshStandardMaterial({
-      color: 0x64748b,
-      roughness: 0.36,
-      metalness: 0.82,
+      color: 0x6b7785,
+      roughness: 0.34,
+      metalness: 0.85,
       bumpMap: textures.brushedMetalBump,
       bumpScale: 0.003,
     })
@@ -69,21 +71,21 @@ export function buildMirScene(
   const sfogMetalMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xd1d5db,
-      roughness: 0.28,
-      metalness: 0.88,
+      roughness: 0.25,
+      metalness: 0.9,
     })
   );
   const extinguisherMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xdc2626,
-      roughness: 0.35,
-      metalness: 0.4,
+      roughness: 0.34,
+      metalness: 0.42,
     })
   );
   const shroudMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
-      roughness: 0.28,
+      roughness: 0.26,
       metalness: 0.85,
       transparent: true,
       opacity: 0.82,
@@ -96,11 +98,18 @@ export function buildMirScene(
       metalness: 0.2,
     })
   );
+  const solarCellMat = track(
+    new THREE.MeshStandardMaterial({
+      color: 0x1e3a8a,
+      roughness: 0.2,
+      metalness: 0.72,
+    })
+  );
 
-  // 1. Kvant-1 Pressurized Cylindrical Hull, Structural Ribs & Acoustic Pads
+  // 1. Kvant-1 Pressurized Cylindrical Hull, Conical Transfer Bulkheads & Quilted Liner
   const staticGroup = new THREE.Group();
   const hullShell = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(1.24, 1.24, 4.6, 24, 1, true)),
+    track(new THREE.CylinderGeometry(1.24, 1.24, 4.3, 32, 1, true)),
     linerMat
   );
   hullShell.rotation.x = Math.PI / 2;
@@ -110,7 +119,7 @@ export function buildMirScene(
 
   for (let z = -2.0; z <= 1.8; z += 0.76) {
     const rib = new THREE.Mesh(
-      track(new THREE.TorusGeometry(1.2, 0.028, 8, 32)),
+      track(new THREE.TorusGeometry(1.2, 0.03, 10, 36)),
       frameMat
     );
     rib.position.set(0, 1.44, z);
@@ -138,7 +147,7 @@ export function buildMirScene(
 
   // Floor deck grating + instanced deck floor cross-bars
   const deck = new THREE.Mesh(
-    track(new THREE.BoxGeometry(1.12, 0.06, 4.5)),
+    track(new THREE.BoxGeometry(1.12, 0.06, 4.26)),
     darkRackMat
   );
   deck.position.set(0, 0.38, -0.1);
@@ -160,7 +169,7 @@ export function buildMirScene(
   deckRibs.instanceMatrix.needsUpdate = true;
   staticGroup.add(deckRibs);
 
-  // Microgravity Translation Handrails (Amber mid-rails + Blue ceiling rails)
+  // Microgravity Translation Handrails with mounting standoffs (Amber mid-rails + Blue ceiling rails)
   [-0.58, 0.58].forEach((hx) => {
     const rail = new THREE.Mesh(
       track(new THREE.CylinderGeometry(0.015, 0.015, 4.2, 10)),
@@ -192,32 +201,41 @@ export function buildMirScene(
   );
   staticGroup.add(floorCable);
 
-  // Aft Hatch Bulkhead toward Soyuz TM-24 with 8 radial locking dogs (sealed oversized radius)
+  // Sculpted Conical Aft & Forward Russian Docking Adapters (Soyuz TM-24 & Base Block Node)
   const bulkheadMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x64748b,
-      roughness: 0.38,
-      metalness: 0.76,
+      roughness: 0.36,
+      metalness: 0.78,
       bumpMap: textures.brushedMetalBump,
-      bumpScale: 0.003,
+      bumpScale: 0.0035,
       side: THREE.DoubleSide,
     })
   );
 
-  const aftBulkhead = new THREE.Mesh(
-    track(new THREE.CircleGeometry(1.28, 32)),
+  // Aft Soyuz TM-24 Conical Transfer Adapter
+  const aftCone = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.42, 1.25, 0.38, 32, 1, false)),
     bulkheadMat
   );
-  aftBulkhead.position.set(0, 1.44, -2.38);
-  staticGroup.add(aftBulkhead);
+  aftCone.rotation.x = -Math.PI / 2;
+  aftCone.position.set(0, 1.44, -2.44);
+  staticGroup.add(aftCone);
 
   const soyuzHatch = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.38, 0.38, 0.08, 24)),
     darkRackMat
   );
   soyuzHatch.rotation.x = Math.PI / 2;
-  soyuzHatch.position.set(0, 1.42, -2.34);
+  soyuzHatch.position.set(0, 1.44, -2.26);
   staticGroup.add(soyuzHatch);
+
+  const soyuzCollar = new THREE.Mesh(
+    track(new THREE.TorusGeometry(0.41, 0.026, 10, 28)),
+    handrailMat
+  );
+  soyuzCollar.position.set(0, 1.44, -2.23);
+  staticGroup.add(soyuzCollar);
 
   const hatchDogs = new THREE.InstancedMesh(
     track(new THREE.BoxGeometry(0.04, 0.025, 0.03)),
@@ -226,7 +244,7 @@ export function buildMirScene(
   );
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
-    _dummy.position.set(Math.cos(a) * 0.36, 1.42 + Math.sin(a) * 0.36, -2.29);
+    _dummy.position.set(Math.cos(a) * 0.36, 1.44 + Math.sin(a) * 0.36, -2.22);
     _dummy.rotation.set(0, 0, a);
     _dummy.scale.set(1, 1, 1);
     _dummy.updateMatrix();
@@ -235,35 +253,35 @@ export function buildMirScene(
   hatchDogs.instanceMatrix.needsUpdate = true;
   staticGroup.add(hatchDogs);
 
-  // Forward Bulkhead & Mir Base-Block Transfer Hatch (seals the +Z end completely so 360° VR has zero open black void)
-  const fwdBulkhead = new THREE.Mesh(
-    track(new THREE.CircleGeometry(1.28, 32)),
+  // Forward Conical Mir Base-Block Node Transfer Bulkhead
+  const fwdCone = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.42, 1.25, 0.38, 32, 1, false)),
     bulkheadMat
   );
-  fwdBulkhead.rotation.y = Math.PI;
-  fwdBulkhead.position.set(0, 1.44, 2.18);
-  staticGroup.add(fwdBulkhead);
+  fwdCone.rotation.x = Math.PI / 2;
+  fwdCone.position.set(0, 1.44, 2.24);
+  staticGroup.add(fwdCone);
 
   const fwdHatch = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.38, 0.38, 0.08, 24)),
     darkRackMat
   );
   fwdHatch.rotation.x = Math.PI / 2;
-  fwdHatch.position.set(0, 1.42, 2.14);
+  fwdHatch.position.set(0, 1.44, 2.06);
   staticGroup.add(fwdHatch);
 
   const fwdHatchCollar = new THREE.Mesh(
     track(new THREE.TorusGeometry(0.41, 0.028, 10, 28)),
     handrailMat
   );
-  fwdHatchCollar.position.set(0, 1.42, 2.11);
+  fwdHatchCollar.position.set(0, 1.44, 2.03);
   staticGroup.add(fwdHatchCollar);
 
   const fwdWheel = new THREE.Mesh(
     track(new THREE.TorusGeometry(0.11, 0.015, 8, 18)),
     sfogMetalMat
   );
-  fwdWheel.position.set(0, 1.42, 2.08);
+  fwdWheel.position.set(0, 1.44, 2.0);
   staticGroup.add(fwdWheel);
 
   const fwdDogs = new THREE.InstancedMesh(
@@ -273,7 +291,7 @@ export function buildMirScene(
   );
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2;
-    _dummy.position.set(Math.cos(a) * 0.36, 1.42 + Math.sin(a) * 0.36, 2.09);
+    _dummy.position.set(Math.cos(a) * 0.36, 1.44 + Math.sin(a) * 0.36, 2.02);
     _dummy.rotation.set(0, 0, a);
     _dummy.scale.set(1, 1, 1);
     _dummy.updateMatrix();
@@ -300,7 +318,7 @@ export function buildMirScene(
     staticGroup.add(housing, tube);
   });
 
-  // Gyrodine Control Moment Gyroscope Drums & Science Experiment Racks (breaker texture)
+  // Gyrodine Control Moment Gyroscope Spheres/Drums & Science Experiment Racks
   const rackExpMat = track(
     new THREE.MeshStandardMaterial({
       map: textures.breakerPanel,
@@ -312,12 +330,17 @@ export function buildMirScene(
   );
   [-0.86, 0.86].forEach((gx) => {
     const gyrodineDrum = new THREE.Mesh(
-      track(new THREE.CylinderGeometry(0.18, 0.18, 0.34, 16)),
+      track(new THREE.SphereGeometry(0.19, 18, 14)),
       sfogMetalMat
     );
-    gyrodineDrum.rotation.z = Math.PI / 2;
-    gyrodineDrum.position.set(gx, 0.82, 0.95);
-    staticGroup.add(gyrodineDrum);
+    gyrodineDrum.position.set(gx, 0.84, 0.95);
+    const gyroCollar = new THREE.Mesh(
+      track(new THREE.TorusGeometry(0.2, 0.02, 8, 22)),
+      frameMat
+    );
+    gyroCollar.rotation.y = Math.PI / 2;
+    gyroCollar.position.set(gx, 0.84, 0.95);
+    staticGroup.add(gyrodineDrum, gyroCollar);
   });
 
   const portPanel = new THREE.Mesh(
@@ -328,7 +351,7 @@ export function buildMirScene(
   portPanel.rotation.y = Math.PI / 2;
   staticGroup.add(portPanel);
 
-  // Quartz Orbital Viewport showing glowing Earth Limb (fog-free)
+  // Quartz Orbital Viewport showing Earth Limb + Exterior Mir Solar Array Wing & Truss
   const viewportFrame = new THREE.Mesh(
     track(new THREE.TorusGeometry(0.28, 0.036, 10, 28)),
     frameMat
@@ -344,9 +367,60 @@ export function buildMirScene(
   earthView.rotation.y = -Math.PI / 2;
   earthView.position.set(1.15, 1.48, 0.45);
   staticGroup.add(earthView);
+
+  // Exterior Mir Solar Wing & Sofora Truss Mast outside the module for authentic 360° exterior silhouette
+  const extSolarGroup = new THREE.Group();
+  extSolarGroup.position.set(2.35, 1.56, -0.3);
+  const solarSpar = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.03, 0.03, 2.8, 10)),
+    sfogMetalMat
+  );
+  solarSpar.rotation.z = Math.PI / 2;
+  extSolarGroup.add(solarSpar);
+  [-0.22, 0.22].forEach((sz) => {
+    const wing = new THREE.Mesh(
+      track(new THREE.BoxGeometry(2.5, 0.02, 0.36)),
+      solarCellMat
+    );
+    wing.position.set(0.2, 0, sz);
+    wing.rotation.x = 0.28;
+    extSolarGroup.add(wing);
+  });
+  staticGroup.add(extSolarGroup);
+
+  // Fog-free orbital deep-space backdrop + starfield
+  const spaceDome = new THREE.Mesh(
+    track(new THREE.SphereGeometry(48, 20, 14)),
+    track(
+      new THREE.MeshBasicMaterial({
+        color: 0x070d1b,
+        side: THREE.BackSide,
+        fog: false,
+        depthWrite: false,
+      })
+    )
+  );
+  staticGroup.add(spaceDome);
+
+  const starGeo = track(new THREE.BufferGeometry());
+  const starPos = new Float32Array(420 * 3);
+  for (let i = 0; i < 420; i++) {
+    const r = 16 + Math.random() * 22;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    starPos[i * 3 + 1] = r * Math.cos(phi);
+    starPos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+  const stars = new THREE.Points(
+    starGeo,
+    track(new THREE.PointsMaterial({ color: 0xe2e8f0, size: 0.14, fog: false }))
+  );
+  root.add(stars);
   root.add(staticGroup);
 
-  // 2. ANCHOR 1: Vika (SFOG) Solid-Fuel Oxygen Generator + Spare Candle Tubes & Scorch Shield
+  // 2. ANCHOR 1: Vika (SFOG) Solid-Fuel Oxygen Generator + Cooling Fins + Spare Candle Tubes & 3-Layer Torch
   const sfogAnchor = new THREE.Group();
   sfogAnchor.name = 'Vika (SFOG) Oxygen Generator';
   sfogAnchor.position.set(-0.62, 1.44, -0.78);
@@ -358,7 +432,6 @@ export function buildMirScene(
   sfogMount.position.set(-0.14, 0, 0);
   sfogAnchor.add(sfogMount);
 
-  // Control dial & ignition plunger lever on Vika box
   const vikaDial = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.042, 0.042, 0.02, 14)),
     sfogMetalMat
@@ -373,7 +446,6 @@ export function buildMirScene(
   plunger.position.set(0.02, -0.18, 0.14);
   sfogAnchor.add(vikaDial, plunger);
 
-  // Spare lithium-perchlorate candle tubes racked beside active unit
   [-0.14, -0.05].forEach((sz) => {
     const spareTube = new THREE.Mesh(
       track(new THREE.CylinderGeometry(0.042, 0.042, 0.24, 12)),
@@ -383,14 +455,24 @@ export function buildMirScene(
     sfogAnchor.add(spareTube);
   });
 
-  // Cylindrical SFOG Combustion Housing
+  // Cylindrical SFOG Combustion Housing + Radial Heat-Sink Cooling Fins
   const sfogHousing = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.085, 0.085, 0.34, 18)),
+    track(new THREE.CylinderGeometry(0.088, 0.088, 0.34, 18)),
     sfogMetalMat
   );
   sfogHousing.rotation.z = -Math.PI / 2;
   sfogHousing.position.set(0.06, 0.04, 0);
   sfogAnchor.add(sfogHousing);
+
+  for (let f = 0; f < 5; f++) {
+    const fin = new THREE.Mesh(
+      track(new THREE.TorusGeometry(0.096, 0.008, 6, 18)),
+      frameMat
+    );
+    fin.rotation.y = Math.PI / 2;
+    fin.position.set(-0.04 + f * 0.05, 0.04, 0);
+    sfogAnchor.add(fin);
+  }
 
   const sfogCanister = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.055, 0.055, 0.24, 16)),
@@ -409,7 +491,7 @@ export function buildMirScene(
 
   // Post-1997 Containment Shroud
   const containmentShroud = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.125, 0.125, 0.4, 18, 1, false)),
+    track(new THREE.CylinderGeometry(0.13, 0.13, 0.42, 20, 1, false)),
     shroudMat
   );
   containmentShroud.rotation.z = -Math.PI / 2;
@@ -417,38 +499,53 @@ export function buildMirScene(
   containmentShroud.visible = false;
   sfogAnchor.add(containmentShroud);
 
-  // 1.5-Foot (~0.46 m) Torch-like Flame Plume projecting across Kvant-1 corridor
-  const torchFlameMat = track(
+  // 3-Layer 1.5-Foot (~0.46 m) Horizontal Torch Flame Plume
+  const torchOuterMat = track(
     new THREE.MeshBasicMaterial({
-      color: 0xff7b1c,
+      color: 0xff5a1f,
       transparent: true,
       opacity: 0,
       depthWrite: false,
+      blending: THREE.AdditiveBlending,
     })
   );
+  const torchFlameMat = track(
+    new THREE.MeshBasicMaterial({
+      color: 0xff8a1e,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  const torchInnerMat = track(
+    new THREE.MeshBasicMaterial({
+      color: 0xfffbeb,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  const torchOuter = new THREE.Mesh(
+    track(new THREE.ConeGeometry(0.18, 0.66, 18, 1, true)),
+    torchOuterMat
+  );
+  torchOuter.rotation.z = -Math.PI / 2;
+  torchOuter.position.set(0.58, 0.04, 0);
   const torchFlame = new THREE.Mesh(
-    track(new THREE.ConeGeometry(0.12, 0.56, 16, 1, true)),
+    track(new THREE.ConeGeometry(0.11, 0.54, 16, 1, true)),
     torchFlameMat
   );
   torchFlame.rotation.z = -Math.PI / 2;
   torchFlame.position.set(0.54, 0.04, 0);
-  sfogAnchor.add(torchFlame);
-
-  const torchInnerMat = track(
-    new THREE.MeshBasicMaterial({
-      color: 0xfef08a,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-    })
-  );
   const torchInner = new THREE.Mesh(
-    track(new THREE.ConeGeometry(0.055, 0.38, 12)),
+    track(new THREE.ConeGeometry(0.052, 0.38, 12)),
     torchInnerMat
   );
   torchInner.rotation.z = -Math.PI / 2;
   torchInner.position.set(0.45, 0.04, 0);
-  sfogAnchor.add(torchInner);
+  sfogAnchor.add(torchOuter, torchFlame, torchInner);
 
   root.add(sfogAnchor);
 
@@ -471,7 +568,6 @@ export function buildMirScene(
   rackFace.position.set(0.07, 0, 0);
   corridorAnchor.add(rackFace);
 
-  // Telemetry CRT screen & instanced status switches on opposing rack
   const crtScreen = new THREE.Mesh(
     track(new THREE.PlaneGeometry(0.22, 0.16)),
     track(new THREE.MeshBasicMaterial({ color: 0x0ea5e9 }))
@@ -497,7 +593,6 @@ export function buildMirScene(
   rackSwitches.instanceMatrix.needsUpdate = true;
   corridorAnchor.add(rackSwitches);
 
-  // Egress blockage barrier plane
   const blockageMat = track(
     new THREE.MeshBasicMaterial({
       color: 0xef4444,
@@ -515,13 +610,13 @@ export function buildMirScene(
   corridorAnchor.add(blockageBarrier);
   root.add(corridorAnchor);
 
-  // 4. ANCHOR 3: Overhead Ventilation Ducts, HEPA Box & Water-Foam Extinguishers
+  // 4. ANCHOR 3: Overhead Ventilation Ducts, HEPA Box & Detailed ВП-1 Water-Foam Extinguishers
   const ventilationAnchor = new THREE.Group();
   ventilationAnchor.name = 'Ventilation Ducts & Extinguishers';
   ventilationAnchor.position.set(0, 2.02, -0.35);
 
   const ductTube = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.11, 0.11, 2.6, 16)),
+    track(new THREE.CylinderGeometry(0.11, 0.11, 2.6, 18)),
     frameMat
   );
   ductTube.rotation.x = Math.PI / 2;
@@ -545,24 +640,29 @@ export function buildMirScene(
   }
   ventilationAnchor.add(fanVaneGroup);
 
-  // Mounted Water-Foam Extinguisher Cylinders with horn nozzles & brackets
+  // Mounted Soviet Water-Foam Extinguisher Cylinders with top valve collars, gauges & horn nozzles
   [-0.36, 0.36].forEach((ex) => {
     const ext = new THREE.Mesh(
-      track(new THREE.CylinderGeometry(0.055, 0.055, 0.34, 14)),
+      track(new THREE.CylinderGeometry(0.058, 0.058, 0.34, 16)),
       extinguisherMat
     );
     ext.position.set(ex, -0.22, 0.4);
+    const collar = new THREE.Mesh(
+      track(new THREE.CylinderGeometry(0.024, 0.03, 0.04, 10)),
+      sfogMetalMat
+    );
+    collar.position.set(ex, -0.03, 0.4);
     const nozzle = new THREE.Mesh(
-      track(new THREE.ConeGeometry(0.025, 0.08, 10)),
+      track(new THREE.ConeGeometry(0.026, 0.09, 12)),
       darkRackMat
     );
-    nozzle.position.set(ex, -0.02, 0.44);
-    nozzle.rotation.x = 0.6;
-    ventilationAnchor.add(ext, nozzle);
+    nozzle.position.set(ex, 0.0, 0.44);
+    nozzle.rotation.x = 0.65;
+    ventilationAnchor.add(ext, collar, nozzle);
   });
   root.add(ventilationAnchor);
 
-  // 5. ANCHOR 4: Emergency Respirators (PBA Canisters & Visors) & Forward Soyuz Escape Route
+  // 5. ANCHOR 4: Emergency Respirators (ИПК-1М Hoods, Breathing Tubes & O2 Cartridges)
   const respiratorAnchor = new THREE.Group();
   respiratorAnchor.name = 'Emergency Respirators & Soyuz Path';
   respiratorAnchor.position.set(0, 1.32, 0.52);
@@ -576,12 +676,12 @@ export function buildMirScene(
 
   [-0.08, 0.08].forEach((mz) => {
     const maskVisor = new THREE.Mesh(
-      track(new THREE.SphereGeometry(0.075, 14, 12)),
+      track(new THREE.SphereGeometry(0.075, 16, 12)),
       shroudMat
     );
     maskVisor.position.set(-0.44, 0.06, mz);
     const o2Bottle = new THREE.Mesh(
-      track(new THREE.CylinderGeometry(0.03, 0.03, 0.16, 10)),
+      track(new THREE.CylinderGeometry(0.03, 0.03, 0.16, 12)),
       sfogMetalMat
     );
     o2Bottle.position.set(-0.44, -0.1, mz);
@@ -590,7 +690,7 @@ export function buildMirScene(
   root.add(respiratorAnchor);
 
   // 6. Microgravity Sparks & Smoke Dispersion Particles (InstancedMesh)
-  const sparkCount = 46;
+  const sparkCount = 48;
   const sparkParticles = new THREE.InstancedMesh(
     track(new THREE.SphereGeometry(0.018, 8, 8)),
     track(new THREE.MeshBasicMaterial({ color: 0xffffff })),
@@ -628,13 +728,14 @@ export function buildMirScene(
   }
   root.add(smokeParticles);
 
-  // Freeze static structural matrices for VR performance
   staticGroup.traverse((obj) => {
     if (obj instanceof THREE.Mesh) {
       obj.matrixAutoUpdate = false;
       obj.updateMatrix();
     }
   });
+  stars.matrixAutoUpdate = false;
+  stars.updateMatrix();
 
   const componentAnchors = new Map<string, THREE.Object3D>([
     ['mir-sfog', sfogAnchor],
@@ -660,7 +761,7 @@ export function buildMirScene(
       canMat.emissiveIntensity = 0.45;
     } else if (activeFire) {
       canMat.emissive.setHex(0xff5500);
-      canMat.emissiveIntensity = 1.6;
+      canMat.emissiveIntensity = 1.65;
     } else {
       canMat.emissive.setHex(0x000000);
       canMat.emissiveIntensity = 0;
@@ -669,12 +770,15 @@ export function buildMirScene(
     containmentShroud.visible = isUpgraded;
 
     if (activeFire && !isUpgraded) {
-      const flicker = 0.85 + Math.sin(elapsed * 28) * 0.15;
+      const flicker = 0.86 + Math.sin(elapsed * 28) * 0.14;
+      torchOuterMat.opacity = 0.44;
       torchFlameMat.opacity = 0.78;
-      torchInnerMat.opacity = 0.92;
+      torchInnerMat.opacity = 0.94;
+      torchOuter.scale.set(flicker, 1 + Math.sin(elapsed * 18) * 0.16, flicker);
       torchFlame.scale.set(flicker, 1 + Math.sin(elapsed * 20) * 0.15, flicker);
       torchInner.scale.set(flicker, 1 + Math.cos(elapsed * 24) * 0.12, flicker);
     } else {
+      torchOuterMat.opacity = 0;
       torchFlameMat.opacity = 0;
       torchInnerMat.opacity = 0;
     }

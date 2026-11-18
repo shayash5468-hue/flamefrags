@@ -8,6 +8,8 @@ export interface ProceduralTextureSet {
   quiltedBlanketColor: THREE.CanvasTexture;
   quiltedBlanketBump: THREE.CanvasTexture;
   mirPanelColor: THREE.CanvasTexture;
+  mirPanelBump: THREE.CanvasTexture;
+  kaptonFoilBump: THREE.CanvasTexture;
   earthHorizon: THREE.CanvasTexture;
   contactShadow: THREE.CanvasTexture;
   breakerPanel: THREE.CanvasTexture;
@@ -324,41 +326,129 @@ function createQuiltedBlanket(anisotropy: number): {
   return { color, bump };
 }
 
-function createMirPanelTexture(anisotropy: number): THREE.CanvasTexture {
-  const { canvas, ctx } = makeCanvas(512, 512);
-  // Characteristic Mir padded beige-olive / sage liner panels
-  ctx.fillStyle = '#9aa18c';
-  ctx.fillRect(0, 0, 512, 512);
+function createMirPanelTextures(anisotropy: number): {
+  color: THREE.CanvasTexture;
+  bump: THREE.CanvasTexture;
+} {
+  const cCol = makeCanvas(512, 512);
+  const cBump = makeCanvas(512, 512);
 
-  // Segmented soft-pad quilting
-  ctx.strokeStyle = '#5c6352';
-  ctx.lineWidth = 4;
+  // Characteristic Mir padded beige-olive / sage liner panels
+  cCol.ctx.fillStyle = '#9aa18c';
+  cCol.ctx.fillRect(0, 0, 512, 512);
+
+  cBump.ctx.fillStyle = '#b4b4b4';
+  cBump.ctx.fillRect(0, 0, 512, 512);
+
+  // Segmented soft-pad quilting with pillowed gradients & fastener snaps
   for (let y = 0; y < 512; y += 128) {
     for (let x = 0; x < 512; x += 128) {
-      ctx.strokeRect(x + 6, y + 6, 116, 116);
-      // Fastener snaps
-      ctx.fillStyle = '#3f4539';
-      ctx.beginPath();
-      ctx.arc(x + 18, y + 18, 4, 0, Math.PI * 2);
-      ctx.arc(x + 110, y + 18, 4, 0, Math.PI * 2);
-      ctx.arc(x + 18, y + 110, 4, 0, Math.PI * 2);
-      ctx.arc(x + 110, y + 110, 4, 0, Math.PI * 2);
-      ctx.fill();
+      const pGrad = cCol.ctx.createRadialGradient(x + 64, y + 64, 12, x + 64, y + 64, 84);
+      pGrad.addColorStop(0, '#a6ad97');
+      pGrad.addColorStop(1, '#848b78');
+      cCol.ctx.fillStyle = pGrad;
+      cCol.ctx.fillRect(x + 6, y + 6, 116, 116);
+
+      cCol.ctx.strokeStyle = '#53594a';
+      cCol.ctx.lineWidth = 4;
+      cCol.ctx.strokeRect(x + 6, y + 6, 116, 116);
+
+      const bGrad = cBump.ctx.createRadialGradient(x + 64, y + 64, 8, x + 64, y + 64, 82);
+      bGrad.addColorStop(0, '#dcdcdc');
+      bGrad.addColorStop(1, '#585858');
+      cBump.ctx.fillStyle = bGrad;
+      cBump.ctx.fillRect(x + 6, y + 6, 116, 116);
+      cBump.ctx.strokeStyle = '#242424';
+      cBump.ctx.lineWidth = 5;
+      cBump.ctx.strokeRect(x + 6, y + 6, 116, 116);
+
+      // Fastener snaps + Velcro straps
+      cCol.ctx.fillStyle = '#3a4034';
+      cBump.ctx.fillStyle = '#383838';
+      [
+        [x + 18, y + 18],
+        [x + 110, y + 18],
+        [x + 18, y + 110],
+        [x + 110, y + 110],
+      ].forEach(([sx, sy]) => {
+        cCol.ctx.beginPath();
+        cCol.ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+        cCol.ctx.fill();
+        cBump.ctx.beginPath();
+        cBump.ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+        cBump.ctx.fill();
+      });
     }
   }
 
-  // Subtle stencil markings
-  ctx.fillStyle = 'rgba(30, 38, 30, 0.55)';
-  ctx.font = 'bold 16px "IBM Plex Mono", monospace';
-  ctx.fillText('KVANT-1 // 37KE', 24, 48);
-  ctx.fillText('O2 / VIKA SECTOR', 274, 304);
+  // Subtle Russian/English station markings
+  cCol.ctx.fillStyle = 'rgba(26, 34, 26, 0.62)';
+  cCol.ctx.font = 'bold 15px "IBM Plex Mono", monospace';
+  cCol.ctx.fillText('KVANT-1 // 37KE', 22, 46);
+  cCol.ctx.fillText('VIKA / SFOG BAY', 274, 302);
+
+  const color = new THREE.CanvasTexture(cCol.canvas);
+  color.colorSpace = THREE.SRGBColorSpace;
+  color.wrapS = THREE.RepeatWrapping;
+  color.wrapT = THREE.RepeatWrapping;
+  color.repeat.set(2, 2);
+  color.anisotropy = anisotropy;
+
+  const bump = new THREE.CanvasTexture(cBump.canvas);
+  bump.wrapS = THREE.RepeatWrapping;
+  bump.wrapT = THREE.RepeatWrapping;
+  bump.repeat.set(2, 2);
+  return { color, bump };
+}
+
+function createKaptonFoilBump(): THREE.CanvasTexture {
+  const { canvas, ctx } = makeCanvas(512, 512);
+  ctx.fillStyle = '#808080';
+  ctx.fillRect(0, 0, 512, 512);
+
+  // Deterministic pseudo-random crinkled Kapton MLI foil facets
+  let seed = 4219;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
+
+  const step = 32;
+  for (let y = 0; y < 512; y += step) {
+    for (let x = 0; x < 512; x += step) {
+      const mx = x + (0.25 + rand() * 0.5) * step;
+      const my = y + (0.25 + rand() * 0.5) * step;
+      const shades = [
+        Math.floor(85 + rand() * 115),
+        Math.floor(75 + rand() * 115),
+        Math.floor(90 + rand() * 115),
+        Math.floor(80 + rand() * 115),
+      ];
+      const corners = [
+        [x, y],
+        [x + step, y],
+        [x + step, y + step],
+        [x, y + step],
+      ];
+      for (let t = 0; t < 4; t++) {
+        const c1 = corners[t];
+        const c2 = corners[(t + 1) % 4];
+        const s = shades[t];
+        ctx.fillStyle = `rgb(${s},${s},${s})`;
+        ctx.beginPath();
+        ctx.moveTo(c1[0], c1[1]);
+        ctx.lineTo(c2[0], c2[1]);
+        ctx.lineTo(mx, my);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
 
   const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 2);
-  tex.anisotropy = anisotropy;
+  tex.repeat.set(3, 3);
   return tex;
 }
 
@@ -525,7 +615,8 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
   const apolloConsoleCold = createApolloConsoleTexture('cold', maxAnisotropy);
   const brushedMetalBump = createBrushedMetalBump();
   const quilted = createQuiltedBlanket(maxAnisotropy);
-  const mirPanelColor = createMirPanelTexture(maxAnisotropy);
+  const mirPanels = createMirPanelTextures(maxAnisotropy);
+  const kaptonFoilBump = createKaptonFoilBump();
   const earthHorizon = createEarthHorizonTexture(maxAnisotropy);
   const contactShadow = createContactShadowTexture();
   const breakerPanel = createBreakerPanelTexture(maxAnisotropy);
@@ -538,7 +629,9 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
     brushedMetalBump,
     quiltedBlanketColor: quilted.color,
     quiltedBlanketBump: quilted.bump,
-    mirPanelColor,
+    mirPanelColor: mirPanels.color,
+    mirPanelBump: mirPanels.bump,
+    kaptonFoilBump,
     earthHorizon,
     contactShadow,
     breakerPanel,
@@ -550,7 +643,9 @@ export function createProceduralTextures(maxAnisotropy: number): ProceduralTextu
       brushedMetalBump.dispose();
       quilted.color.dispose();
       quilted.bump.dispose();
-      mirPanelColor.dispose();
+      mirPanels.color.dispose();
+      mirPanels.bump.dispose();
+      kaptonFoilBump.dispose();
       earthHorizon.dispose();
       contactShadow.dispose();
       breakerPanel.dispose();

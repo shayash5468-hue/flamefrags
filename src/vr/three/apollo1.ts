@@ -17,38 +17,46 @@ export function buildApollo1Scene(
     return item;
   };
 
-  // Materials with realistic roughness/metalness variation
+  // Materials with crisp aerospace PBR roughness/metalness differentiation
   const hullMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x3b434d,
-      roughness: 0.6,
-      metalness: 0.48,
+      roughness: 0.58,
+      metalness: 0.5,
       bumpMap: textures.brushedMetalBump,
-      bumpScale: 0.004,
+      bumpScale: 0.0045,
+      side: THREE.DoubleSide,
+    })
+  );
+  const ablatorMat = track(
+    new THREE.MeshStandardMaterial({
+      color: 0x1a1e24,
+      roughness: 0.82,
+      metalness: 0.16,
       side: THREE.DoubleSide,
     })
   );
   const ribMat = track(
     new THREE.MeshStandardMaterial({
-      color: 0x6b7582,
-      roughness: 0.34,
-      metalness: 0.85,
+      color: 0x73808f,
+      roughness: 0.3,
+      metalness: 0.88,
     })
   );
   const floorMat = track(
     new THREE.MeshStandardMaterial({
-      color: 0x262b33,
+      color: 0x242a32,
       roughness: 0.78,
-      metalness: 0.25,
+      metalness: 0.24,
       bumpMap: textures.brushedMetalBump,
       bumpScale: 0.003,
     })
   );
   const couchFrameMat = track(
     new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
-      roughness: 0.28,
-      metalness: 0.88,
+      color: 0xa2b0c0,
+      roughness: 0.25,
+      metalness: 0.9,
     })
   );
   const couchPadMat = track(
@@ -58,14 +66,14 @@ export function buildApollo1Scene(
       metalness: 0.06,
       map: textures.quiltedBlanketColor,
       bumpMap: textures.quiltedBlanketBump,
-      bumpScale: 0.008,
+      bumpScale: 0.009,
     })
   );
   const strapMat = track(
     new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
+      color: 0x1b2434,
       roughness: 0.9,
-      metalness: 0.05,
+      metalness: 0.04,
     })
   );
   const consoleNominalMat = track(
@@ -83,7 +91,7 @@ export function buildApollo1Scene(
       roughness: 0.42,
       metalness: 0.38,
       emissive: new THREE.Color(0x7c2d12),
-      emissiveIntensity: 0.58,
+      emissiveIntensity: 0.62,
     })
   );
   const nylonMat = track(
@@ -106,29 +114,36 @@ export function buildApollo1Scene(
   const copperWireMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xb45309,
+      roughness: 0.3,
+      metalness: 0.84,
+    })
+  );
+  const silverWireMat = track(
+    new THREE.MeshStandardMaterial({
+      color: 0xd1d5db,
       roughness: 0.32,
-      metalness: 0.82,
+      metalness: 0.78,
     })
   );
   const coolantPipeMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x38bdf8,
-      roughness: 0.25,
-      metalness: 0.78,
+      roughness: 0.24,
+      metalness: 0.8,
     })
   );
   const valveRedMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xdc2626,
-      roughness: 0.35,
-      metalness: 0.45,
+      roughness: 0.34,
+      metalness: 0.48,
     })
   );
   const hatchMat = track(
     new THREE.MeshStandardMaterial({
       color: 0x64748b,
-      roughness: 0.38,
-      metalness: 0.78,
+      roughness: 0.36,
+      metalness: 0.8,
       bumpMap: textures.brushedMetalBump,
       bumpScale: 0.004,
     })
@@ -136,41 +151,80 @@ export function buildApollo1Scene(
   const hatchSealMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xf59e0b,
-      roughness: 0.45,
-      metalness: 0.2,
+      roughness: 0.44,
+      metalness: 0.22,
     })
   );
   const gantrySteelMat = track(
     new THREE.MeshStandardMaterial({
       color: 0xb91c1c,
-      roughness: 0.65,
-      metalness: 0.45,
+      roughness: 0.62,
+      metalness: 0.48,
     })
   );
   const glassMat = track(
     new THREE.MeshPhysicalMaterial({
       color: 0x93c5fd,
-      roughness: 0.1,
-      metalness: 0.05,
+      roughness: 0.08,
+      metalness: 0.06,
       transparent: true,
-      opacity: 0.26,
+      opacity: 0.28,
       depthWrite: false,
     })
   );
 
-  // 1. Conical Command Module Pressure Hull, Forward Tunnel Ceiling, Structural Rings & Stringers
+  // 1. Conical Command Module Pressure Hull, Ablative Heat-Shield Skirt, Forward Docking Tunnel & RCS Pods
   const hullGroup = new THREE.Group();
+
+  // Outer conical pressure shell + chamfered upper neck via LatheGeometry
+  const cmProfile = [
+    new THREE.Vector2(1.94, 0.22),
+    new THREE.Vector2(1.91, 0.42),
+    new THREE.Vector2(1.56, 1.48),
+    new THREE.Vector2(1.16, 2.66),
+    new THREE.Vector2(1.06, 2.74),
+  ];
   const outerShell = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(1.15, 1.92, 2.55, 36, 1, true)),
+    track(new THREE.LatheGeometry(cmProfile, 40)),
     hullMat
   );
-  outerShell.position.set(0, 1.48, -0.05);
+  outerShell.position.set(0, 0, -0.05);
   outerShell.receiveShadow = true;
   hullGroup.add(outerShell);
 
-  // Seal top of conical hull with Forward Docking Tunnel Bulkhead & Parachute Bay
+  // Phenolic-epoxy Ablative Aft Heat Shield Skirt Torus around CM base
+  const heatShieldSkirt = new THREE.Mesh(
+    track(new THREE.TorusGeometry(1.95, 0.09, 12, 42)),
+    ablatorMat
+  );
+  heatShieldSkirt.rotation.x = Math.PI / 2;
+  heatShieldSkirt.position.set(0, 0.19, -0.05);
+  hullGroup.add(heatShieldSkirt);
+
+  // 4 Lower Attitude-Control RCS Pitch/Yaw Nozzle Blisters on Aft Skirt
+  for (let r = 0; r < 4; r++) {
+    const a = (r / 4) * Math.PI * 2 + Math.PI / 4;
+    const rcsPodGroup = new THREE.Group();
+    rcsPodGroup.position.set(Math.cos(a) * 1.9, 0.34, -0.05 + Math.sin(a) * 1.9);
+    rcsPodGroup.rotation.y = -a;
+
+    const rcsHousing = new THREE.Mesh(
+      track(new THREE.BoxGeometry(0.14, 0.12, 0.14)),
+      ribMat
+    );
+    const rcsBell = new THREE.Mesh(
+      track(new THREE.ConeGeometry(0.036, 0.085, 10, 1, true)),
+      ablatorMat
+    );
+    rcsBell.position.set(0.09, 0, 0);
+    rcsBell.rotation.z = Math.PI / 2;
+    rcsPodGroup.add(rcsHousing, rcsBell);
+    hullGroup.add(rcsPodGroup);
+  }
+
+  // Seal top of conical hull with Forward Docking Tunnel Bulkhead, Probe Housing & Parachute Bay
   const ceilingBulkhead = new THREE.Mesh(
-    track(new THREE.CircleGeometry(1.18, 36)),
+    track(new THREE.CircleGeometry(1.06, 36)),
     hullMat
   );
   ceilingBulkhead.rotation.x = Math.PI / 2;
@@ -178,34 +232,50 @@ export function buildApollo1Scene(
   hullGroup.add(ceilingBulkhead);
 
   const forwardTunnelCollar = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.46, 0.56, 0.34, 24, 1, false)),
+    track(new THREE.CylinderGeometry(0.45, 0.56, 0.34, 28, 1, false)),
     ribMat
   );
   forwardTunnelCollar.position.set(0, 2.58, -0.05);
   hullGroup.add(forwardTunnelCollar);
 
   const tunnelHatchRing = new THREE.Mesh(
-    track(new THREE.TorusGeometry(0.44, 0.032, 10, 28)),
+    track(new THREE.TorusGeometry(0.44, 0.032, 12, 32)),
     couchFrameMat
   );
   tunnelHatchRing.rotation.x = Math.PI / 2;
   tunnelHatchRing.position.set(0, 2.41, -0.05);
   hullGroup.add(tunnelHatchRing);
 
-  // Three radial Main Parachute Stowage Canisters around upper bulkhead
+  // Exterior Docking Probe Nose Cone & Latches protruding above Forward Bulkhead
+  const dockProbeCone = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.14, 0.44, 0.42, 24)),
+    ribMat
+  );
+  dockProbeCone.position.set(0, 2.95, -0.05);
+  const dockProbeTip = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.04, 0.07, 0.24, 14)),
+    couchFrameMat
+  );
+  dockProbeTip.position.set(0, 3.24, -0.05);
+  hullGroup.add(dockProbeCone, dockProbeTip);
+
+  // Three radial Cylindrical Main Parachute Canisters with Kevlar Strap Bands
   for (let p = 0; p < 3; p++) {
     const angle = (p / 3) * Math.PI * 2 + 0.4;
+    const px = Math.cos(angle) * 0.78;
+    const pz = -0.05 + Math.sin(angle) * 0.78;
     const chutePack = new THREE.Mesh(
-      track(new THREE.BoxGeometry(0.28, 0.22, 0.24)),
+      track(new THREE.CylinderGeometry(0.13, 0.14, 0.24, 14)),
       betaClothMat
     );
-    chutePack.position.set(
-      Math.cos(angle) * 0.78,
-      2.6,
-      -0.05 + Math.sin(angle) * 0.78
+    chutePack.position.set(px, 2.6, pz);
+    const chuteStrap = new THREE.Mesh(
+      track(new THREE.TorusGeometry(0.138, 0.012, 8, 18)),
+      strapMat
     );
-    chutePack.rotation.y = -angle;
-    hullGroup.add(chutePack);
+    chuteStrap.rotation.x = Math.PI / 2;
+    chuteStrap.position.set(px, 2.58, pz);
+    hullGroup.add(chutePack, chuteStrap);
   }
 
   // Overhead warm-white + cyan cockpit floodlight fixtures
@@ -227,7 +297,7 @@ export function buildApollo1Scene(
   });
 
   const deckFloor = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(1.94, 1.96, 0.08, 36)),
+    track(new THREE.CylinderGeometry(1.93, 1.95, 0.08, 36)),
     floorMat
   );
   deckFloor.position.set(0, 0.22, -0.05);
@@ -247,7 +317,7 @@ export function buildApollo1Scene(
     hullGroup.add(rib);
   }
 
-  // Instanced longitudinal hull stringers & rivet strips (1 draw call for VR perf)
+  // Instanced longitudinal hull stringers & rivet strips
   const stringerCount = 16;
   const stringers = new THREE.InstancedMesh(
     track(new THREE.BoxGeometry(0.025, 2.48, 0.035)),
@@ -283,94 +353,127 @@ export function buildApollo1Scene(
   hullGroup.add(grateMesh);
   root.add(hullGroup);
 
-  // 2. Three Contoured Crew Couches with 4-Point Restraints, Hand Controllers & Suit Hoses
+  // 2. Three Sculpted Ergonomic Crew Couches (Beveled ExtrudeGeometry Shells + Shock Struts + Controllers)
   const couchesGroup = new THREE.Group();
   const couchXOffsets = [-0.54, 0, 0.54];
-  const strutGeo = track(new THREE.CylinderGeometry(0.018, 0.018, 0.54, 10));
-  const backPanGeo = track(new THREE.BoxGeometry(0.42, 0.62, 0.06));
-  const legPanGeo = track(new THREE.BoxGeometry(0.4, 0.06, 0.36));
-  const headrestGeo = track(new THREE.BoxGeometry(0.26, 0.18, 0.08));
-  const bolsterGeo = track(new THREE.BoxGeometry(0.05, 0.16, 0.1));
-  const armGeo = track(new THREE.BoxGeometry(0.032, 0.05, 0.36));
-  const strapGeo = track(new THREE.BoxGeometry(0.035, 0.44, 0.015));
+
+  // Beveled S-curved couch shell profile extruded along X width
+  const couchSideShape = new THREE.Shape();
+  couchSideShape.moveTo(-0.22, -0.02);
+  couchSideShape.lineTo(0.14, 0.06);
+  couchSideShape.quadraticCurveTo(0.24, 0.14, 0.24, 0.34);
+  couchSideShape.lineTo(0.28, 0.62);
+  couchSideShape.lineTo(0.21, 0.64);
+  couchSideShape.lineTo(0.16, 0.32);
+  couchSideShape.quadraticCurveTo(0.14, 0.16, 0.06, 0.12);
+  couchSideShape.lineTo(-0.24, 0.04);
+  couchSideShape.closePath();
+
+  const sculptedShellGeo = track(
+    new THREE.ExtrudeGeometry(couchSideShape, {
+      depth: 0.38,
+      bevelEnabled: true,
+      bevelThickness: 0.022,
+      bevelSize: 0.018,
+      bevelSegments: 2,
+    })
+  );
+  sculptedShellGeo.rotateY(-Math.PI / 2);
+  sculptedShellGeo.translate(0.19, 0.28, -0.04);
+
+  const strutGeo = track(new THREE.CylinderGeometry(0.016, 0.016, 0.54, 10));
+  const headrestGeo = track(new THREE.BoxGeometry(0.24, 0.17, 0.075));
+  const bolsterGeo = track(new THREE.BoxGeometry(0.048, 0.15, 0.095));
+  const armGeo = track(new THREE.BoxGeometry(0.03, 0.045, 0.34));
+  const strapGeo = track(new THREE.BoxGeometry(0.032, 0.42, 0.014));
 
   couchXOffsets.forEach((cx, idx) => {
     const couch = new THREE.Group();
     couch.name = `Crew Couch ${idx + 1}`;
-    couch.position.set(cx, 0.34, 0.12);
+    couch.position.set(cx, 0.32, 0.1);
 
+    // Tubular aluminum shock-attenuator A-frame struts
     [-0.18, 0.18].forEach((sx) => {
       const strut = new THREE.Mesh(strutGeo, couchFrameMat);
       strut.position.set(sx, 0.2, 0.1);
-      strut.rotation.x = 0.25;
-      couch.add(strut);
+      strut.rotation.x = 0.26;
+      const diagStrut = new THREE.Mesh(strutGeo, couchFrameMat);
+      diagStrut.position.set(sx, 0.2, -0.08);
+      diagStrut.rotation.x = -0.32;
+      couch.add(strut, diagStrut);
     });
 
-    const backPan = new THREE.Mesh(backPanGeo, couchPadMat);
-    backPan.position.set(0, 0.46, 0.14);
-    backPan.rotation.x = -0.35;
-    backPan.castShadow = true;
-    couch.add(backPan);
-
-    const legPan = new THREE.Mesh(legPanGeo, couchPadMat);
-    legPan.position.set(0, 0.36, -0.14);
-    legPan.rotation.x = 0.35;
-    couch.add(legPan);
+    const sculptedShell = new THREE.Mesh(sculptedShellGeo, couchPadMat);
+    sculptedShell.castShadow = true;
+    couch.add(sculptedShell);
 
     const headrest = new THREE.Mesh(headrestGeo, couchPadMat);
-    headrest.position.set(0, 0.78, 0.24);
-    headrest.rotation.x = -0.25;
+    headrest.position.set(0, 0.94, 0.24);
+    headrest.rotation.x = -0.22;
     couch.add(headrest);
 
-    [-0.14, 0.14].forEach((bx) => {
+    [-0.135, 0.135].forEach((bx) => {
       const bolster = new THREE.Mesh(bolsterGeo, couchPadMat);
-      bolster.position.set(bx, 0.78, 0.2);
-      bolster.rotation.x = -0.25;
+      bolster.position.set(bx, 0.94, 0.2);
+      bolster.rotation.x = -0.22;
       couch.add(bolster);
     });
 
-    // 4-point shoulder restraint webbing & center buckle
-    [-0.09, 0.09].forEach((rx) => {
+    // 4-point shoulder restraint webbing & rotary quick-release buckle
+    [-0.085, 0.085].forEach((rx) => {
       const strap = new THREE.Mesh(strapGeo, strapMat);
-      strap.position.set(rx, 0.5, 0.11);
-      strap.rotation.x = -0.35;
+      strap.position.set(rx, 0.64, 0.14);
+      strap.rotation.x = -0.25;
       couch.add(strap);
     });
     const buckle = new THREE.Mesh(
-      track(new THREE.CylinderGeometry(0.035, 0.035, 0.02, 12)),
+      track(new THREE.CylinderGeometry(0.035, 0.035, 0.02, 14)),
       couchFrameMat
     );
-    buckle.rotation.x = Math.PI / 2 - 0.35;
-    buckle.position.set(0, 0.42, 0.07);
+    buckle.rotation.x = Math.PI / 2 - 0.25;
+    buckle.position.set(0, 0.48, 0.08);
     couch.add(buckle);
 
     [-0.22, 0.22].forEach((ax) => {
       const arm = new THREE.Mesh(armGeo, couchFrameMat);
-      arm.position.set(ax, 0.46, 0.0);
+      arm.position.set(ax, 0.52, -0.02);
       couch.add(arm);
     });
 
-    // Rotational Hand Controller (RHC) joystick on right armrest + THC on left
+    // Rotational Hand Controller (RHC) joystick + Translation T-handle (THC)
     if (idx === 0 || idx === 1) {
       const rhcBase = new THREE.Mesh(
-        track(new THREE.BoxGeometry(0.06, 0.04, 0.08)),
+        track(new THREE.BoxGeometry(0.058, 0.04, 0.075)),
         strapMat
       );
-      rhcBase.position.set(0.22, 0.5, -0.1);
+      rhcBase.position.set(0.22, 0.56, -0.12);
       const rhcGrip = new THREE.Mesh(
-        track(new THREE.CylinderGeometry(0.014, 0.018, 0.08, 10)),
+        track(new THREE.CylinderGeometry(0.013, 0.018, 0.08, 10)),
         couchFrameMat
       );
-      rhcGrip.position.set(0.22, 0.55, -0.1);
+      rhcGrip.position.set(0.22, 0.61, -0.12);
       rhcGrip.rotation.x = -0.2;
       couch.add(rhcBase, rhcGrip);
+
+      const thcArm = new THREE.Mesh(
+        track(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 8)),
+        couchFrameMat
+      );
+      thcArm.rotation.x = Math.PI / 2;
+      thcArm.position.set(-0.22, 0.56, -0.18);
+      const thcBar = new THREE.Mesh(
+        track(new THREE.BoxGeometry(0.075, 0.02, 0.02)),
+        strapMat
+      );
+      thcBar.position.set(-0.22, 0.56, -0.22);
+      couch.add(thcArm, thcBar);
     }
 
     // Dual corrugated suit O2 umbilical hoses snaking from left ECS side
     const hoseCurve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.18, 0.28, -0.22),
-      new THREE.Vector3(-0.14, 0.38, -0.05),
-      new THREE.Vector3(-0.08, 0.46, 0.05),
+      new THREE.Vector3(-0.18, 0.26, -0.24),
+      new THREE.Vector3(-0.15, 0.39, -0.05),
+      new THREE.Vector3(-0.08, 0.48, 0.05),
     ]);
     const suitHose = new THREE.Mesh(
       track(new THREE.TubeGeometry(hoseCurve, 12, 0.014, 8, false)),
@@ -382,7 +485,7 @@ export function buildApollo1Scene(
   });
   root.add(couchesGroup);
 
-  // 3. Main Display Console (MDC) with DSKY, Guard Rails & Instanced Toggle Switches + Annunciators
+  // 3. Main Display Console (MDC) with Glare-Shield Hood, DSKY, Guard Rails & Switch-Guard U-Brackets
   const consoleGroup = new THREE.Group();
   consoleGroup.position.set(0, 1.32, -0.78);
   const mdcFace = new THREE.Mesh(
@@ -401,7 +504,16 @@ export function buildApollo1Scene(
   mdcBacking.rotation.x = 0.22;
   consoleGroup.add(mdcBacking);
 
-  // Guard rail bar across console with mounting standoffs
+  // Top glare-shield canopy hood over Main Display Console
+  const glareHood = new THREE.Mesh(
+    track(new THREE.BoxGeometry(1.66, 0.04, 0.18)),
+    strapMat
+  );
+  glareHood.position.set(0, 0.4, 0.02);
+  glareHood.rotation.x = 0.12;
+  consoleGroup.add(glareHood);
+
+  // Guard rail bar across console with standoffs
   const guardBar = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.012, 0.012, 1.54, 12)),
     couchFrameMat
@@ -410,35 +522,47 @@ export function buildApollo1Scene(
   guardBar.position.set(0, -0.26, 0.14);
   consoleGroup.add(guardBar);
 
-  // Instanced Physical Toggle Switches & Switch-Guard U-Brackets across MDC (1 draw call)
+  // Instanced Physical Toggle Switches + U-shaped Switch Guards
   const switchCount = 48;
   const switches = new THREE.InstancedMesh(
     track(new THREE.CylinderGeometry(0.0045, 0.0055, 0.028, 6)),
     couchFrameMat,
     switchCount
   );
+  const switchGuards = new THREE.InstancedMesh(
+    track(new THREE.BoxGeometry(0.032, 0.03, 0.022)),
+    ribMat,
+    16
+  );
   let sIdx = 0;
+  let gIdx = 0;
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 16; col++) {
       const sx = -0.64 + col * 0.085;
       const sy = -0.18 + row * 0.16;
-      // Offset Z along the 0.22 rad tilted panel plane
       const sz = 0.072 - sy * 0.22;
       _dummy.position.set(sx, sy, sz);
       _dummy.rotation.set(Math.PI / 2 + 0.22 + (col % 3 === 0 ? -0.25 : 0.25), 0, 0);
       _dummy.scale.set(1, 1, 1);
       _dummy.updateMatrix();
       switches.setMatrixAt(sIdx++, _dummy.matrix);
+
+      if (row === 1 && col % 2 === 0 && gIdx < 16) {
+        _dummy.position.set(sx, sy, sz - 0.004);
+        _dummy.rotation.set(0.22, 0, 0);
+        _dummy.updateMatrix();
+        switchGuards.setMatrixAt(gIdx++, _dummy.matrix);
+      }
     }
   }
   switches.instanceMatrix.needsUpdate = true;
-  consoleGroup.add(switches);
+  switchGuards.count = gIdx;
+  switchGuards.instanceMatrix.needsUpdate = true;
+  consoleGroup.add(switches, switchGuards);
 
-  // Instanced Caution & Warning Matrix Lamps (top right MDC)
+  // Instanced Caution & Warning Matrix Lamps
   const cwCount = 12;
-  const cwMat = track(
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
-  );
+  const cwMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }));
   const cwLamps = new THREE.InstancedMesh(
     track(new THREE.BoxGeometry(0.042, 0.022, 0.01)),
     cwMat,
@@ -469,11 +593,7 @@ export function buildApollo1Scene(
   dskyBox.rotation.x = -0.35;
   const dskyDisplay = new THREE.Mesh(
     track(new THREE.PlaneGeometry(0.11, 0.1)),
-    track(
-      new THREE.MeshBasicMaterial({
-        color: 0x10b981,
-      })
-    )
+    track(new THREE.MeshBasicMaterial({ color: 0x10b981 }))
   );
   dskyDisplay.position.set(0.05, 0.04, 0.052);
   dskyBox.add(dskyDisplay);
@@ -481,7 +601,7 @@ export function buildApollo1Scene(
 
   root.add(consoleGroup);
 
-  // 4. ANCHOR 1: Lower Equipment Bay Wiring, ECU, Valves & Optical Sextant
+  // 4. ANCHOR 1: Lower Equipment Bay Wiring, ECU Manifold, Valves & Dual Optical Sextant
   const wiringAnchor = new THREE.Group();
   wiringAnchor.name = 'Lower Equipment Bay Wiring & ECS';
   wiringAnchor.position.set(-0.74, 0.98, -0.45);
@@ -509,7 +629,7 @@ export function buildApollo1Scene(
   ecuFins.instanceMatrix.needsUpdate = true;
   wiringAnchor.add(ecuFins);
 
-  // Vulnerable wire bundles (TubeGeometry) + protective clamp bands
+  // Vulnerable multi-harness wire bundles (Copper + Silver-sheathed Teflon) & clamping bands
   const wireCurve1 = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0.06, -0.22, 0.15),
     new THREE.Vector3(0.12, -0.05, 0.08),
@@ -520,8 +640,6 @@ export function buildApollo1Scene(
     track(new THREE.TubeGeometry(wireCurve1, 24, 0.022, 8, false)),
     copperWireMat
   );
-  wiringAnchor.add(wireBundle1);
-
   const wireCurve2 = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0.02, -0.22, -0.1),
     new THREE.Vector3(0.1, 0.0, 0.04),
@@ -529,11 +647,28 @@ export function buildApollo1Scene(
   ]);
   const wireBundle2 = new THREE.Mesh(
     track(new THREE.TubeGeometry(wireCurve2, 20, 0.016, 8, false)),
+    silverWireMat
+  );
+  const wireCurve3 = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.11, -0.2, 0.0),
+    new THREE.Vector3(0.14, 0.02, -0.08),
+    new THREE.Vector3(0.08, 0.2, 0.04),
+  ]);
+  const wireBundle3 = new THREE.Mesh(
+    track(new THREE.TubeGeometry(wireCurve3, 18, 0.013, 8, false)),
     copperWireMat
   );
-  wiringAnchor.add(wireBundle2);
+  wiringAnchor.add(wireBundle1, wireBundle2, wireBundle3);
 
-  // ECS Coolant Pipes & Red Shutoff Valve Handwheel beside wiring
+  // Aluminum clamp ring around central wire junction
+  const clampCollar = new THREE.Mesh(
+    track(new THREE.TorusGeometry(0.036, 0.008, 8, 16)),
+    couchFrameMat
+  );
+  clampCollar.position.set(0.09, 0.02, 0.04);
+  wiringAnchor.add(clampCollar);
+
+  // ECS Coolant Pipes & Red Shutoff Valve Handwheel + Pressure Gauge
   const coolantCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-0.02, -0.24, 0.16),
     new THREE.Vector3(-0.02, 0.02, 0.16),
@@ -553,14 +688,20 @@ export function buildApollo1Scene(
   valveWheel.position.set(0.11, -0.14, 0.16);
   wiringAnchor.add(valveWheel);
 
-  // Optical Navigation Sextant/Telescope mount beside LEB
+  // Optical Navigation Sextant + Scanning Telescope dual eyepieces
   const sextantTube = new THREE.Mesh(
-    track(new THREE.CylinderGeometry(0.045, 0.055, 0.22, 14)),
+    track(new THREE.CylinderGeometry(0.045, 0.055, 0.22, 16)),
     strapMat
   );
   sextantTube.rotation.z = -0.6;
   sextantTube.position.set(0.24, -0.18, 0.06);
-  wiringAnchor.add(sextantTube);
+  const sextantCup = new THREE.Mesh(
+    track(new THREE.CylinderGeometry(0.052, 0.045, 0.04, 16)),
+    hatchSealMat
+  );
+  sextantCup.rotation.z = -0.6;
+  sextantCup.position.set(0.31, -0.12, 0.06);
+  wiringAnchor.add(sextantTube, sextantCup);
 
   // Armor shield (shown in Block II upgrade comparison)
   const armorTray = new THREE.Mesh(
@@ -580,7 +721,7 @@ export function buildApollo1Scene(
     })
   );
   const sparkCore = new THREE.Mesh(
-    track(new THREE.IcosahedronGeometry(0.055, 1)),
+    track(new THREE.IcosahedronGeometry(0.06, 1)),
     sparkMat
   );
   sparkCore.position.set(0.08, 0.04, 0.05);
@@ -680,7 +821,6 @@ export function buildApollo1Scene(
   hatchDoor.position.set(0.34, 0, 0);
   hatchPivot.add(hatchDoor);
 
-  // Hatch viewport & pressure equalization ratchet handle
   const hatchGlass = new THREE.Mesh(
     track(new THREE.CylinderGeometry(0.09, 0.09, 0.065, 16)),
     glassMat
@@ -727,7 +867,6 @@ export function buildApollo1Scene(
   );
   materialsAnchor.add(wallPanel);
 
-  // Right-hand stowage bay drawers & latch bars
   for (let d = 0; d < 3; d++) {
     const locker = new THREE.Mesh(
       track(new THREE.BoxGeometry(0.14, 0.18, 0.24)),
@@ -737,7 +876,6 @@ export function buildApollo1Scene(
     materialsAnchor.add(locker);
   }
 
-  // Velcro strips & debris netting
   const velcroStrip = new THREE.Mesh(
     track(new THREE.BoxGeometry(0.02, 0.58, 0.08)),
     strapMat
@@ -761,52 +899,118 @@ export function buildApollo1Scene(
   materialsAnchor.add(netGrid);
   root.add(materialsAnchor);
 
-  // 8. Fire / Heat Plume Demonstration Mesh
+  // 8. Volumetric Multi-Layer Fire Plume + Smoke Wisps (replaces flat cone)
   const fireGroup = new THREE.Group();
-  fireGroup.position.set(-0.42, 1.05, -0.4);
-  const fireMat = track(
+  fireGroup.position.set(-0.46, 0.98, -0.42);
+  const fireOuterMat = track(
     new THREE.MeshBasicMaterial({
-      color: 0xff6b1a,
+      color: 0xff5a1f,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  const fireMidMat = track(
+    new THREE.MeshBasicMaterial({
+      color: 0xfbbf24,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  const fireCoreMat = track(
+    new THREE.MeshBasicMaterial({
+      color: 0xfff7ed,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+  );
+  const firePlume = new THREE.Mesh(
+    track(new THREE.ConeGeometry(0.42, 1.05, 18, 1, true)),
+    fireOuterMat
+  );
+  firePlume.position.y = 0.42;
+  const fireMid = new THREE.Mesh(
+    track(new THREE.ConeGeometry(0.24, 0.72, 16, 1, true)),
+    fireMidMat
+  );
+  fireMid.position.y = 0.32;
+  const fireCore = new THREE.Mesh(
+    track(new THREE.ConeGeometry(0.11, 0.42, 12)),
+    fireCoreMat
+  );
+  fireCore.position.y = 0.18;
+  fireGroup.add(firePlume, fireMid, fireCore);
+  root.add(fireGroup);
+
+  // Rising combustion smoke & soot particles (InstancedMesh)
+  const smokeCount = 24;
+  const smokeMat = track(
+    new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      roughness: 0.95,
+      metalness: 0.0,
       transparent: true,
       opacity: 0,
       depthWrite: false,
     })
   );
-  const firePlume = new THREE.Mesh(
-    track(new THREE.ConeGeometry(0.45, 0.95, 16, 1, true)),
-    fireMat
+  const smokeMesh = new THREE.InstancedMesh(
+    track(new THREE.DodecahedronGeometry(0.12, 1)),
+    smokeMat,
+    smokeCount
   );
-  firePlume.position.y = 0.35;
-  fireGroup.add(firePlume);
-  root.add(fireGroup);
+  smokeMesh.frustumCulled = false;
+  root.add(smokeMesh);
 
-  // 9. Exterior Launch Complex 34 Gantry & Umbilical Swing Arm
+  // 9. Exterior Launch Complex 34 Steel Truss Tower, Service Platform & Umbilical Swing Arm
   const padGroup = new THREE.Group();
-  padGroup.position.set(0, 1.2, -2.8);
-  const gantryTower = new THREE.Mesh(
-    track(new THREE.BoxGeometry(0.35, 5.5, 0.35)),
-    gantrySteelMat
-  );
-  gantryTower.position.set(-1.4, 0.6, -1.2);
-  padGroup.add(gantryTower);
+  padGroup.position.set(0, 1.2, -2.9);
+
+  // Four corner structural gantry legs instead of a single slab
+  [
+    [-1.6, -1.4],
+    [-1.15, -1.4],
+    [-1.6, -0.95],
+    [-1.15, -0.95],
+  ].forEach(([gx, gz]) => {
+    const leg = new THREE.Mesh(
+      track(new THREE.BoxGeometry(0.08, 5.6, 0.08)),
+      gantrySteelMat
+    );
+    leg.position.set(gx, 0.6, gz);
+    padGroup.add(leg);
+  });
 
   // Cross-bracing lattice bars on Launch Complex 34 tower
   for (let b = -2; b <= 2; b++) {
     const brace = new THREE.Mesh(
-      track(new THREE.BoxGeometry(0.75, 0.06, 0.06)),
+      track(new THREE.BoxGeometry(0.62, 0.05, 0.05)),
       gantrySteelMat
     );
-    brace.position.set(-1.2, 0.6 + b * 0.85, -1.05);
-    brace.rotation.z = b % 2 === 0 ? 0.5 : -0.5;
+    brace.position.set(-1.375, 0.6 + b * 0.85, -0.95);
+    brace.rotation.z = b % 2 === 0 ? 0.52 : -0.52;
     padGroup.add(brace);
   }
 
   const swingArm = new THREE.Mesh(
-    track(new THREE.BoxGeometry(2.4, 0.24, 0.28)),
+    track(new THREE.BoxGeometry(2.3, 0.22, 0.3)),
     gantrySteelMat
   );
-  swingArm.position.set(-0.2, 1.4, -0.8);
+  swingArm.position.set(-0.2, 1.4, -0.78);
   padGroup.add(swingArm);
+
+  // White Room Service Platform Pod on Swing Arm tip
+  const whiteRoomPod = new THREE.Mesh(
+    track(new THREE.BoxGeometry(0.54, 0.62, 0.56)),
+    betaClothMat
+  );
+  whiteRoomPod.position.set(0.84, 1.4, -0.78);
+  padGroup.add(whiteRoomPod);
 
   // Recessed Forward Observation Viewports showing twilight LC-34 Service Tower + Floodlights
   const padVistaMat = track(
@@ -861,7 +1065,7 @@ export function buildApollo1Scene(
     hullGroup.add(panel);
   });
 
-  // Aft Bulkhead Crew Stowage Bags & Environmental Telemetry Boxes behind couches
+  // Aft Bulkhead Crew Stowage Bags & LiOH Scrubber Cartridge Rack behind couches
   for (let b = -1; b <= 1; b++) {
     const bag = new THREE.Mesh(
       track(new THREE.BoxGeometry(0.34, 0.3, 0.14)),
@@ -875,18 +1079,18 @@ export function buildApollo1Scene(
 
   // Contact shadow disc under CM floor
   const shadowPlane = new THREE.Mesh(
-    track(new THREE.PlaneGeometry(4.4, 4.4)),
+    track(new THREE.PlaneGeometry(4.6, 4.6)),
     track(
       new THREE.MeshBasicMaterial({
         map: textures.contactShadow,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.48,
         depthWrite: false,
       })
     )
   );
   shadowPlane.rotation.x = -Math.PI / 2;
-  shadowPlane.position.set(0, 0.18, -0.05);
+  shadowPlane.position.set(0, 0.12, -0.05);
   root.add(shadowPlane);
 
   // Freeze static matrices for optimal stereo VR performance
@@ -923,10 +1127,8 @@ export function buildApollo1Scene(
       state === 'response' ||
       state === 'outcome';
 
-    // Console state
     mdcFace.material = isAlert && !isUpgraded ? consoleAlertMat : consoleNominalMat;
 
-    // Update C&W matrix lamps only when alert state changes
     if (lastCwAlert !== (isAlert && !isUpgraded)) {
       lastCwAlert = isAlert && !isUpgraded;
       for (let i = 0; i < cwCount; i++) {
@@ -940,13 +1142,11 @@ export function buildApollo1Scene(
       if (cwLamps.instanceColor) cwLamps.instanceColor.needsUpdate = true;
     }
 
-    // Materials & wiring upgrade toggle (Block I vs Block II)
     wallPanel.material = isUpgraded ? betaClothMat : nylonMat;
     netGrid.visible = !isUpgraded;
     velcroStrip.visible = !isUpgraded;
     armorTray.visible = isUpgraded;
 
-    // Hatch animation: Block I inward pressure-lock vs Block II outward quick-release
     if (isUpgraded) {
       hatchPivot.rotation.z = THREE.MathUtils.lerp(hatchPivot.rotation.z, 0.65, 0.08);
       pressureArrowGroup.visible = false;
@@ -959,8 +1159,7 @@ export function buildApollo1Scene(
       pressureArrowGroup.visible = false;
     }
 
-    // Electrical spark at LEB wire bundle
-    if (state === 'ignition') {
+    if (state === 'ignition' && !isUpgraded) {
       const flicker = Math.abs(Math.sin(elapsed * 26)) * 0.9 + 0.1;
       sparkMat.opacity = flicker;
       sparkCore.scale.setScalar(0.8 + flicker * 0.7);
@@ -968,21 +1167,48 @@ export function buildApollo1Scene(
       sparkMat.opacity = 0;
     }
 
-    // Thermal fire plume
-    if (state === 'ignition') {
-      fireMat.opacity = 0.42;
-      firePlume.scale.set(0.45, 0.55, 0.45);
-    } else if (state === 'escalation') {
-      fireMat.opacity = 0.62 + Math.sin(elapsed * 14) * 0.12;
-      firePlume.scale.set(1.25, 1.35 + Math.sin(elapsed * 10) * 0.12, 1.25);
-    } else if (state === 'response') {
-      fireMat.opacity = 0.35;
-      firePlume.scale.set(1.0, 0.9, 1.0);
+    // Layered multi-shell fire plume + rising smoke
+    const wob = 1 + Math.sin(elapsed * 15) * 0.12;
+    if (state === 'ignition' && !isUpgraded) {
+      fireOuterMat.opacity = 0.45;
+      fireMidMat.opacity = 0.65;
+      fireCoreMat.opacity = 0.85;
+      fireGroup.scale.set(0.55, 0.6 * wob, 0.55);
+    } else if (state === 'escalation' && !isUpgraded) {
+      fireOuterMat.opacity = 0.68 + Math.sin(elapsed * 14) * 0.14;
+      fireMidMat.opacity = 0.82;
+      fireCoreMat.opacity = 0.95;
+      fireGroup.scale.set(1.22, 1.32 * wob, 1.22);
+    } else if (state === 'response' && !isUpgraded) {
+      fireOuterMat.opacity = 0.34;
+      fireMidMat.opacity = 0.42;
+      fireCoreMat.opacity = 0.5;
+      fireGroup.scale.set(0.95, 0.85, 0.95);
     } else {
-      fireMat.opacity = 0;
+      fireOuterMat.opacity = 0;
+      fireMidMat.opacity = 0;
+      fireCoreMat.opacity = 0;
     }
 
-    // Animate cabin O2 / O2+N2 atmosphere particles
+    const showSmoke = !isUpgraded && (state === 'escalation' || state === 'response' || state === 'outcome');
+    smokeMesh.visible = showSmoke;
+    if (showSmoke) {
+      smokeMat.opacity = state === 'escalation' ? 0.34 : state === 'response' ? 0.42 : 0.22;
+      for (let i = 0; i < smokeCount; i++) {
+        const t = (elapsed * 0.42 + i / smokeCount) % 1;
+        _dummy.position.set(
+          -0.46 + Math.sin(elapsed * 1.4 + i) * (0.12 + t * 0.35),
+          1.28 + t * 1.32,
+          -0.42 + Math.cos(elapsed * 1.1 + i * 1.7) * (0.12 + t * 0.35)
+        );
+        _dummy.rotation.set(elapsed + i, elapsed * 0.7, i);
+        _dummy.scale.setScalar(0.6 + t * 1.45);
+        _dummy.updateMatrix();
+        smokeMesh.setMatrixAt(i, _dummy.matrix);
+      }
+      smokeMesh.instanceMatrix.needsUpdate = true;
+    }
+
     for (let i = 0; i < moleculeCount; i++) {
       const base = moleculeOffsets[i];
       const speed =
