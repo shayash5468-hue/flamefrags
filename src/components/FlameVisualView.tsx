@@ -3,6 +3,7 @@ import { FLAME_FINGERPRINTS, NASA_PSI_FILES } from '../data/nasaPsiDatasets';
 import { DetectiveTaskType, PsiFileRecord } from '../types';
 import { sound } from '../utils/audio';
 import { stripLatex } from '../utils/plainText';
+import { renderRealisticFlame } from '../utils/realisticFlameRenderer';
 import { CombustionDnaPanel } from './features/CombustionDnaPanel';
 import { HabitatRelevancePanel } from './features/HabitatRelevancePanel';
 import { 
@@ -17,7 +18,6 @@ import {
   Info,
   Maximize2,
   Atom,
-  CheckCircle2,
   Bot,
   Zap,
   ArrowRight,
@@ -193,12 +193,7 @@ export const FlameVisualView: React.FC<FlameVisualViewProps> = ({
     }
   };
 
-  // Per-canvas extinction & smoke particle state for smooth quench/re-ignite animation
-  const canvasAnimStateRef = useRef<WeakMap<HTMLCanvasElement, {
-    extinguishLevel: number;
-    lastTime: number;
-    smokePuffs: { x: number; y: number; vx: number; vy: number; r: number; alpha: number; life: number }[];
-  }>>(new WeakMap());
+  // Realistic flame animation states are managed per-canvas in realisticFlameRenderer.ts
 
   // Real-time Physics Calculations from Sliders + Fuel Chemistry
   const computeFlameProps = (
@@ -385,373 +380,81 @@ export const FlameVisualView: React.FC<FlameVisualViewProps> = ({
     return () => clearTimeout(timeout);
   }, [whatIfGravity, whatIfOxygen, whatIfFlow, whatIfFuel, whatIfPressure]);
 
-  // General Canvas Drawing Helper with Smooth Extinction Collapse, Cooling Ember & Smoke Plume
-  const drawFlameOnCanvas = (
-    canvas: HTMLCanvasElement | null,
-    g: number,
-    flow: number,
-    o2: number,
-    shape: string,
-    intensity: number,
-    extinctionReason: string,
-    now: number,
-    isHybrid = false
-  ) => {
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-    const cx = w / 2;
-    const cy = h / 2;
-
-    // Trail fade
-    ctx.fillStyle = 'rgba(4, 7, 16, 0.30)';
-    ctx.fillRect(0, 0, w, h);
-
-    const is0G = g < 0.05;
-    const isCoolFlame = shape === 'cool-envelope';
-    const isQuenched = shape === 'quenched' || intensity <= 0.02;
-
-    // Retrieve or initialize per-canvas extinction animation state
-    let animState = canvasAnimStateRef.current.get(canvas);
-    if (!animState) {
-      animState = {
-        extinguishLevel: isQuenched ? 1 : 0,
-        lastTime: now,
-        smokePuffs: [],
-      };
-      canvasAnimStateRef.current.set(canvas, animState);
-    }
-
-    const dt = Math.min(0.08, Math.max(0.001, (now - animState.lastTime) / 1000));
-    animState.lastTime = now;
-
-    // Smoothly animate extinguishLevel (0 = burning, 1 = fully extinguished)
-    const prevExt = animState.extinguishLevel;
-    if (isQuenched) {
-      animState.extinguishLevel = Math.min(1, animState.extinguishLevel + dt * 1.15);
-    } else {
-      animState.extinguishLevel = Math.max(0, animState.extinguishLevel - dt * 2.2);
-    }
-
-    const ext = animState.extinguishLevel;
-    const anchorX = cx;
-    const anchorY = !is0G ? cy + 28 : cy;
-
-    // Spawn residual smoke/CO2 vapor wisps while extinguishing or near extinction
-    if ((isQuenched && ext < 0.96) || (ext > 0.05 && ext < 0.95) || (prevExt < ext && Math.random() < 0.65)) {
-      if (animState.smokePuffs.length < 36) {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = is0G ? (10 + Math.random() * 18) : (16 + Math.random() * 24);
-        animState.smokePuffs.push({
-          x: anchorX + (Math.random() - 0.5) * 10,
-          y: anchorY - (is0G ? 0 : 10),
-          vx: is0G ? Math.cos(angle) * speed + flow * 95 : flow * 115 + (Math.random() - 0.5) * 14,
-          vy: is0G ? Math.sin(angle) * speed : -(speed + g * 18),
-          r: 4 + Math.random() * 5,
-          alpha: 0.42 + Math.random() * 0.25,
-          life: 1.0,
-        });
-      }
-    }
-
-    // Update & render smoke/vapor puffs
-    for (let i = animState.smokePuffs.length - 1; i >= 0; i--) {
-      const puff = animState.smokePuffs[i];
-      puff.x += puff.vx * dt;
-      puff.y += puff.vy * dt;
-      puff.r += dt * (is0G ? 9 : 12);
-      puff.life -= dt * 0.58;
-      if (puff.life <= 0) {
-        animState.smokePuffs.splice(i, 1);
-        continue;
-      }
-      const smokeGrad = ctx.createRadialGradient(puff.x, puff.y, 0, puff.x, puff.y, puff.r);
-      smokeGrad.addColorStop(0, `rgba(148, 163, 184, ${puff.alpha * puff.life * 0.55})`);
-      smokeGrad.addColorStop(0.6, `rgba(100, 116, 139, ${puff.alpha * puff.life * 0.28})`);
-      smokeGrad.addColorStop(1, 'rgba(71, 85, 105, 0)');
-      ctx.fillStyle = smokeGrad;
-      ctx.beginPath();
-      ctx.arc(puff.x, puff.y, puff.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Compute live flame scale & sputtering behavior
-    const activeIntensity = isQuenched ? 0 : intensity;
-    const burnStrength = Math.max(0, (1 - ext) * (isQuenched ? 0.85 : activeIntensity));
-    const isNearLimit = !isQuenched && activeIntensity < 0.45;
-    const sputter = isNearLimit
-      ? (0.65 + 0.35 * Math.sin(now * 0.045) * Math.cos(now * 0.029))
-      : 1.0;
-    const liveAlpha = Math.max(0, Math.min(1, burnStrength * sputter));
-
-    // ==========================================
-    // RENDER FLAME IF STILL BURNING OR MID-COLLAPSE
-    // ==========================================
-    if (liveAlpha > 0.02) {
-      const sizeScale = 0.28 + 0.72 * Math.sqrt(burnStrength);
-      const yellowRatio = Math.max(0, Math.min(1, (activeIntensity - 0.22) / 0.65));
-
-      if (!is0G) {
-        // TRUE BUOYANT TEARDROP FLAME (scales cleanly from partial-g 0.05g up to 1.0g, including FlameTwin!)
-        const burnerX = anchorX;
-        const burnerY = anchorY;
-
-        const gRatio = Math.min(1.0, Math.max(0.18, g));
-        const flameHeight = Math.max(18, (68 * (0.55 + gRatio * 0.65) + (o2 - 21) * 1.4) * sizeScale);
-        const baseWidth = Math.max(6, (20 + (1 - gRatio) * 5 + (o2 - 21) * 0.3 + Math.sin(now * 0.007) * 0.9) * sizeScale);
-
-        const jitterAmp = isNearLimit || ext > 0.05 ? 4.8 : 2.2;
-        const tipFlickerX = Math.sin(now * 0.021) * (jitterAmp * Math.min(g + 0.25, 1.3));
-        const tipFlickerY = Math.cos(now * 0.029) * (isNearLimit ? 3.5 : 1.6);
-        const liftOffset = ext * 8 + (flow > 0.32 ? (flow - 0.32) * 28 : 0);
-        const tipX = burnerX + (flow * 48) + tipFlickerX;
-        const tipY = burnerY - flameHeight - liftOffset + tipFlickerY;
-
-        const traceTeardrop = (
-          context: CanvasRenderingContext2D,
-          tX: number,
-          tY: number,
-          bX: number,
-          bY: number,
-          width: number
-        ) => {
-          const heightSpan = Math.max(8, bY - tY);
-          context.beginPath();
-          context.moveTo(tX, tY);
-          context.bezierCurveTo(
-            tX + width * 0.35, tY + heightSpan * 0.40,
-            bX + width * 1.15, bY - heightSpan * 0.22,
-            bX + width, bY
-          );
-          context.quadraticCurveTo(bX, bY + width * 0.42, bX - width, bY);
-          context.bezierCurveTo(
-            bX - width * 1.15, bY - heightSpan * 0.22,
-            tX - width * 0.35, tY + heightSpan * 0.40,
-            tX, tY
-          );
-          context.closePath();
-        };
-
-        ctx.save();
-        ctx.globalAlpha = liveAlpha;
-
-        // Outer plume
-        const plumeGrad = ctx.createLinearGradient(burnerX, burnerY + 8, tipX, tipY - 14);
-        if (isHybrid) {
-          plumeGrad.addColorStop(0, yellowRatio > 0.25 ? 'rgba(168, 85, 247, 0.34)' : 'rgba(56, 189, 248, 0.30)');
-          plumeGrad.addColorStop(0.55, yellowRatio > 0.25 ? 'rgba(249, 115, 22, 0.20)' : 'rgba(99, 102, 241, 0.18)');
-        } else {
-          plumeGrad.addColorStop(0, yellowRatio > 0.2 ? 'rgba(234, 88, 12, 0.35)' : 'rgba(56, 189, 248, 0.30)');
-          plumeGrad.addColorStop(0.55, yellowRatio > 0.2 ? 'rgba(249, 115, 22, 0.18)' : 'rgba(37, 99, 235, 0.16)');
-        }
-        plumeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = plumeGrad;
-        traceTeardrop(ctx, tipX, tipY - 10 * sizeScale, burnerX, burnerY + 2 - liftOffset * 0.5, baseWidth * 1.35);
-        ctx.fill();
-
-        // Main mantle
-        const mantleGrad = ctx.createLinearGradient(burnerX, burnerY - liftOffset * 0.4, tipX, tipY);
-        mantleGrad.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
-        if (isHybrid && yellowRatio > 0.25) {
-          mantleGrad.addColorStop(0.22, 'rgba(125, 211, 252, 0.92)');
-          mantleGrad.addColorStop(0.55, `rgba(192, 132, 252, ${0.88 * yellowRatio})`);
-          mantleGrad.addColorStop(0.84, `rgba(251, 146, 60, ${0.86 * yellowRatio})`);
-        } else if (yellowRatio > 0.25) {
-          mantleGrad.addColorStop(0.22, `rgba(254, 240, 138, ${0.95 * yellowRatio})`);
-          mantleGrad.addColorStop(0.52, `rgba(251, 191, 36, ${0.90 * yellowRatio})`);
-          mantleGrad.addColorStop(0.84, `rgba(249, 115, 22, ${0.85 * yellowRatio})`);
-        } else {
-          mantleGrad.addColorStop(0.35, isHybrid ? 'rgba(168, 85, 247, 0.85)' : 'rgba(56, 189, 248, 0.85)');
-          mantleGrad.addColorStop(0.80, 'rgba(37, 99, 235, 0.55)');
-        }
-        mantleGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = mantleGrad;
-        traceTeardrop(ctx, tipX, tipY, burnerX, burnerY - liftOffset * 0.4, baseWidth);
-        ctx.fill();
-
-        // Inner core
-        const coreH = flameHeight * 0.46;
-        const coreTipY = burnerY - coreH - liftOffset * 0.5;
-        const coreGrad = ctx.createLinearGradient(burnerX, burnerY, burnerX, coreTipY);
-        coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-        coreGrad.addColorStop(0.45, isHybrid ? 'rgba(56, 189, 248, 0.82)' : yellowRatio > 0.2 ? 'rgba(254, 240, 138, 0.80)' : 'rgba(125, 211, 252, 0.75)');
-        coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = coreGrad;
-        traceTeardrop(ctx, burnerX + (flow * 16), coreTipY, burnerX, burnerY - 2 - liftOffset * 0.4, baseWidth * 0.48);
-        ctx.fill();
-
-        // Blue stoichiometric base rim
-        const blueRimGrad = ctx.createLinearGradient(burnerX - baseWidth, burnerY, burnerX + baseWidth, burnerY);
-        blueRimGrad.addColorStop(0, 'rgba(56, 189, 248, 0.85)');
-        blueRimGrad.addColorStop(0.5, isHybrid ? 'rgba(168, 85, 247, 0.65)' : 'rgba(37, 99, 235, 0.40)');
-        blueRimGrad.addColorStop(1, 'rgba(56, 189, 248, 0.85)');
-        ctx.strokeStyle = blueRimGrad;
-        ctx.lineWidth = Math.max(1.5, 3.2 * sizeScale);
-        ctx.beginPath();
-        ctx.arc(burnerX, burnerY + 2 - liftOffset * 0.3, baseWidth * 0.92, 0.15 * Math.PI, 0.85 * Math.PI, false);
-        ctx.stroke();
-
-        ctx.restore();
-      } else {
-        // 0G SPHERICAL FLAME BALL (or FlameTwin 0G Coupled Envelope)
-        const baseRadius = isCoolFlame ? 22 : isHybrid ? 34 : 30;
-        const radius = Math.max(5, baseRadius * sizeScale);
-        const pulse = Math.sin(now * (isNearLimit ? 0.025 : 0.006)) * (isNearLimit ? 2.5 : 1.8);
-        const offsetX = flow * 36;
-
-        ctx.save();
-        ctx.globalAlpha = liveAlpha;
-
-        const grad = ctx.createRadialGradient(
-          cx + offsetX, cy, 1,
-          cx + offsetX, cy, Math.max(4, radius + pulse)
-        );
-
-        if (isHybrid) {
-          grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-          grad.addColorStop(0.25, 'rgba(56, 189, 248, 0.85)');
-          grad.addColorStop(0.65, isCoolFlame ? 'rgba(129, 140, 248, 0.45)' : 'rgba(168, 85, 247, 0.65)');
-          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        } else if (isCoolFlame || isNearLimit) {
-          grad.addColorStop(0, 'rgba(125, 211, 252, 0.65)');
-          grad.addColorStop(0.55, 'rgba(56, 189, 248, 0.38)');
-          grad.addColorStop(0.85, 'rgba(168, 85, 247, 0.22)');
-          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        } else {
-          grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-          grad.addColorStop(0.3, 'rgba(56, 189, 248, 0.85)');
-          grad.addColorStop(0.8, 'rgba(37, 99, 235, 0.4)');
-          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        }
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(cx + offsetX, cy, Math.max(4, radius + pulse), 0, Math.PI * 2);
-        ctx.fill();
-
-        if (!isCoolFlame && burnStrength > 0.25) {
-          ctx.strokeStyle = isHybrid ? 'rgba(192, 132, 252, 0.45)' : 'rgba(148, 163, 184, 0.35)';
-          ctx.lineWidth = 1.2;
-          ctx.setLineDash([3, 3]);
-          ctx.beginPath();
-          ctx.arc(cx + offsetX, cy, radius + (isHybrid ? 14 : 11), 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-
-        ctx.restore();
-      }
-    }
-
-    // ==========================================
-    // BURNER NOZZLE / DROPLET CORE + COOLING EMBER ON EXTINCTION
-    // ==========================================
-    const emberHeat = isQuenched ? Math.max(0, 1 - ext * 0.72) : 0;
-    if (!is0G) {
-      ctx.fillStyle = '#475569';
-      ctx.fillRect(anchorX - 5, anchorY + 3, 10, 8);
-      ctx.fillStyle = emberHeat > 0.25 ? `rgba(249, 115, 22, ${emberHeat})` : '#94a3b8';
-      ctx.beginPath();
-      ctx.ellipse(anchorX, anchorY + 3, 5, 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      if (emberHeat > 0.18) {
-        const emberGrad = ctx.createRadialGradient(anchorX, anchorY, 0, anchorX, anchorY, 10 * emberHeat + 4);
-        emberGrad.addColorStop(0, `rgba(251, 146, 60, ${emberHeat * 0.85})`);
-        emberGrad.addColorStop(0.5, `rgba(185, 28, 28, ${emberHeat * 0.4})`);
-        emberGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = emberGrad;
-        ctx.beginPath();
-        ctx.arc(anchorX, anchorY, 10 * emberHeat + 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.fillStyle = emberHeat > 0.35 ? '#fb923c' : '#94a3b8';
-      ctx.beginPath();
-      ctx.arc(anchorX, anchorY, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Clear Extinguished State Readout
-    if (isQuenched && ext > 0.55) {
-      const labelAlpha = Math.min(1, (ext - 0.55) / 0.35);
-      ctx.save();
-      ctx.globalAlpha = labelAlpha;
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = 'bold 11px JetBrains Mono, monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('FLAME EXTINGUISHED', cx, h - 28);
-      if (extinctionReason) {
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '9px JetBrains Mono, monospace';
-        ctx.fillText(extinctionReason, cx, h - 14);
-      }
-      ctx.restore();
-    }
-  };
-
-  // Main Render Loop across active visualizers
+  // Main Render Loop across active visualizers using realistic additive combustion optics
   useEffect(() => {
-    let now = performance.now();
     const render = () => {
-      now = performance.now();
+      const now = performance.now();
       animFrameRef.current = requestAnimationFrame(render);
+
+      const sootFor = (fuel: string) =>
+        (FUEL_KINETICS[fuel] || FUEL_KINETICS['n-Heptane Droplet']).sootFactor;
 
       // What-If Canvas (instant real-time physical extinction + AI shape awareness)
       if (activeSubTab === 'whatif' && whatIfCanvasRef.current) {
-        const effShape = whatIfProps.shape === 'quenched' ? 'quenched' : aiFlameData.flameShape === 'quenched' ? 'quenched' : whatIfProps.shape;
-        drawFlameOnCanvas(
-          whatIfCanvasRef.current,
-          whatIfGravity,
-          whatIfFlow,
-          whatIfOxygen,
-          effShape,
-          whatIfProps.intensity,
-          whatIfProps.extinctionReason,
-          now
-        );
+        const effShape =
+          whatIfProps.shape === 'quenched'
+            ? 'quenched'
+            : aiFlameData.flameShape === 'quenched'
+            ? 'quenched'
+            : whatIfProps.shape;
+        renderRealisticFlame(whatIfCanvasRef.current, {
+          gravityG: whatIfGravity,
+          flowVelocity: whatIfFlow,
+          oxygenPct: whatIfOxygen,
+          pressureKpa: whatIfPressure,
+          shape: effShape,
+          intensity: whatIfProps.intensity,
+          fuelName: whatIfFuel,
+          sootFactor: sootFor(whatIfFuel),
+          extinctionReason: whatIfProps.extinctionReason,
+          timeMs: now,
+        });
       }
 
       // Side-by-Side Dual Canvases + FlameTwin
       if (activeSubTab === 'sidebyside') {
         if (sideCanvasARef.current) {
-          drawFlameOnCanvas(
-            sideCanvasARef.current,
-            gravityA,
-            flowA,
-            oxygenA,
-            propsA.shape,
-            propsA.intensity,
-            propsA.extinctionReason,
-            now
-          );
+          renderRealisticFlame(sideCanvasARef.current, {
+            gravityG: gravityA,
+            flowVelocity: flowA,
+            oxygenPct: oxygenA,
+            pressureKpa: pressureA,
+            shape: propsA.shape,
+            intensity: propsA.intensity,
+            fuelName: fuelA,
+            sootFactor: sootFor(fuelA),
+            extinctionReason: propsA.extinctionReason,
+            timeMs: now,
+          });
         }
         if (sideCanvasBRef.current) {
-          drawFlameOnCanvas(
-            sideCanvasBRef.current,
-            gravityB,
-            flowB,
-            oxygenB,
-            propsB.shape,
-            propsB.intensity,
-            propsB.extinctionReason,
-            now + 500
-          );
+          renderRealisticFlame(sideCanvasBRef.current, {
+            gravityG: gravityB,
+            flowVelocity: flowB,
+            oxygenPct: oxygenB,
+            pressureKpa: pressureB,
+            shape: propsB.shape,
+            intensity: propsB.intensity,
+            fuelName: fuelB,
+            sootFactor: sootFor(fuelB),
+            extinctionReason: propsB.extinctionReason,
+            timeMs: now + 500,
+          });
         }
         if (isMerged && flameTwinCanvasRef.current) {
-          drawFlameOnCanvas(
-            flameTwinCanvasRef.current,
-            hybridG,
-            hybridFlow,
-            hybridO2,
-            propsTwin.shape,
-            propsTwin.intensity,
-            propsTwin.extinctionReason,
-            now + 250,
-            true
-          );
+          renderRealisticFlame(flameTwinCanvasRef.current, {
+            gravityG: hybridG,
+            flowVelocity: hybridFlow,
+            oxygenPct: hybridO2,
+            pressureKpa: hybridPressure,
+            shape: propsTwin.shape,
+            intensity: propsTwin.intensity,
+            fuelName: `${fuelA} + ${fuelB}`,
+            sootFactor: hybridKinetics.sootFactor,
+            extinctionReason: propsTwin.extinctionReason,
+            isHybrid: true,
+            timeMs: now + 250,
+          });
         }
       }
     };
@@ -968,7 +671,7 @@ export const FlameVisualView: React.FC<FlameVisualViewProps> = ({
                         ref={sideCanvasARef}
                         width={280}
                         height={180}
-                        className="w-full h-[180px] object-contain"
+                        className="w-full h-[180px] block"
                       />
                       <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 border border-cyan-600/40 text-[9px] font-mono text-cyan-300">
                         {propsA.shape.toUpperCase()} · ~{propsA.coreTemp}°C
@@ -1076,7 +779,7 @@ export const FlameVisualView: React.FC<FlameVisualViewProps> = ({
                         ref={sideCanvasBRef}
                         width={280}
                         height={180}
-                        className="w-full h-[180px] object-contain"
+                        className="w-full h-[180px] block"
                       />
                       <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 border border-purple-600/40 text-[9px] font-mono text-purple-300">
                         {propsB.shape.toUpperCase()} · ~{propsB.coreTemp}°C
@@ -1160,38 +863,6 @@ export const FlameVisualView: React.FC<FlameVisualViewProps> = ({
                     </div>
                   </div>
                 </div>
-
-                {/* Automatic Difference Highlighting Matrix */}
-                <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs font-mono space-y-2">
-                  <div className="text-purple-300 font-bold flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>LIVE DELTA HIGHLIGHTING MATRIX (FROM SLIDERS):</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400">Real-time dynamic</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-300">
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-slate-500 block text-[9px]">Δ CORE TEMP</span>
-                      <span className="text-amber-300 font-bold">{Math.abs(propsA.coreTemp - propsB.coreTemp)} °C</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-slate-500 block text-[9px]">Δ GRAVITY</span>
-                      <span className="text-cyan-300 font-bold">{Math.abs(gravityA - gravityB).toFixed(2)} g</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-slate-500 block text-[9px]">Δ AIRFLOW</span>
-                      <span className="text-emerald-300 font-bold">{Math.abs(flowA - flowB).toFixed(2)} m/s</span>
-                    </div>
-                    <div className="p-2 rounded bg-slate-950 border border-slate-800">
-                      <span className="text-slate-500 block text-[9px]">Δ OXYGEN</span>
-                      <span className="text-purple-300 font-bold">{Math.abs(oxygenA - oxygenB).toFixed(1)}%</span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-slate-500 font-sans pt-1">
-                    Note: Dual Lab and FlameTwin canvases render parametric combustion morphology approximations for interactive exploration, not raw PSI flight video or direct measurements.
-                  </p>
-                </div>
               </div>
 
               {/* ======================================================== */}
@@ -1265,8 +936,8 @@ export const FlameVisualView: React.FC<FlameVisualViewProps> = ({
                         <canvas
                           ref={flameTwinCanvasRef}
                           width={320}
-                          height={220}
-                          className="w-full h-[200px] object-contain"
+                          height={200}
+                          className="w-full h-[200px] block"
                         />
                       </div>
                       <span className="text-[10px] font-mono text-slate-400 mt-1">
@@ -1451,7 +1122,7 @@ export const FlameVisualView: React.FC<FlameVisualViewProps> = ({
                 ref={whatIfCanvasRef}
                 width={480}
                 height={300}
-                className="w-full max-h-[300px] object-contain rounded-lg"
+                className="w-full h-[300px] block rounded-lg"
               />
               <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-black/80 border border-slate-800 text-[11px] font-mono text-slate-300">
                 Core: <strong className="text-cyan-300">{whatIfProps.shape === 'quenched' ? whatIfProps.coreTemp : aiFlameData.coreTemp} °C</strong> · Soot: <strong className="text-amber-300">{whatIfProps.shape === 'quenched' ? '0' : aiFlameData.sootRadiusMm} mm</strong>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sound } from '../utils/audio';
+import { renderRealisticFlame } from '../utils/realisticFlameRenderer';
 import { 
   Flame, 
   Wind, 
@@ -15,18 +16,6 @@ import {
   Droplets
 } from 'lucide-react';
 
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  size: number;
-  color: string;
-  isSoot: boolean;
-}
-
 export const ParticleSimulator: React.FC = () => {
   // Simulator Parameters
   const [gravityG, setGravityG] = useState<number>(0.0); // 0 = 0g, 0.16 = Moon, 0.38 = Mars, 1.0 = 1g Earth
@@ -39,10 +28,6 @@ export const ParticleSimulator: React.FC = () => {
   // Canvases
   const canvas0gRef = useRef<HTMLCanvasElement | null>(null);
   const canvas1gRef = useRef<HTMLCanvasElement | null>(null);
-
-  // Animation particle pools
-  const particles0g = useRef<Particle[]>([]);
-  const particles1g = useRef<Particle[]>([]);
   const animFrameRef = useRef<number>(0);
 
   // Derived Telemetry Calculations
@@ -85,20 +70,68 @@ export const ParticleSimulator: React.FC = () => {
   const coolFlameTendency = calcCoolFlameTendency(gravityG, airflowVelocity, oxygenPercent);
   const sootIndex = Math.max(0.1, +((1.2 - gravityG * 0.4) * (oxygenPercent / 21) * (fuelType === 'pmma' ? 2.2 : 1.0)).toFixed(1));
 
-  // Particle physics loop for Canvas
+  // Realistic combustion physics loop for Canvas
   useEffect(() => {
-    const canvas0g = canvas0gRef.current;
-    const canvas1g = canvas1gRef.current;
+    const computeSimState = (g: number) => {
+      const is0G = g < 0.05;
+      const loi = fuelType === 'pmma' ? 17.2 : fuelType === 'cable' ? 16.4 : fuelType === 'methane' ? 15.2 : 14.6;
+      const effLoi = loi + (is0G ? 0.8 : -0.4);
+      const isO2Quenched = oxygenPercent <= effLoi;
+      const isStagnantQuenched = is0G && airflowVelocity <= 0.005 && oxygenPercent < 17.0;
+      const isBlowoff = airflowVelocity >= 0.38;
+      const isCool = is0G && airflowVelocity < 0.02 && (fuelType === 'heptane' || fuelType === 'methane') && !isO2Quenched && oxygenPercent <= 21.0;
+      const isQuenched = isO2Quenched || isStagnantQuenched || isBlowoff;
+
+      const intensity = isQuenched
+        ? 0
+        : isCool
+        ? 0.42
+        : Math.max(0.2, Math.min(1, (oxygenPercent - effLoi) / 4.2));
+      const shape = isQuenched ? 'quenched' : isCool ? 'cool-envelope' : is0G ? 'spherical' : 'teardrop';
+      const extinctionReason = isO2Quenched
+        ? `O₂ BELOW LOI (${effLoi.toFixed(1)}%)`
+        : isStagnantQuenched
+        ? '0G CO₂ SUFFOCATION'
+        : isBlowoff
+        ? 'AIRFLOW BLOW-OFF'
+        : '';
+      const sootFactor = fuelType === 'methane' ? 0.45 : fuelType === 'candle' ? 1.3 : fuelType === 'pmma' ? 1.15 : 1.0;
+      return { shape, intensity, extinctionReason, sootFactor };
+    };
 
     const render = () => {
+      const now = performance.now();
       animFrameRef.current = requestAnimationFrame(render);
 
-      if (canvas0g) {
-        drawSimulation(canvas0g, particles0g.current, gravityG, airflowVelocity, oxygenPercent, fuelType, quenchAgent);
+      if (canvas0gRef.current) {
+        const s0 = computeSimState(gravityG);
+        renderRealisticFlame(canvas0gRef.current, {
+          gravityG,
+          flowVelocity: airflowVelocity,
+          oxygenPct: oxygenPercent,
+          shape: s0.shape,
+          intensity: s0.intensity,
+          fuelName: fuelType,
+          sootFactor: s0.sootFactor,
+          extinctionReason: s0.extinctionReason,
+          quenchAgent,
+          timeMs: now,
+        });
       }
-      if (canvas1g && splitView) {
-        // Compare with pure 1G terrestrial flame
-        drawSimulation(canvas1g, particles1g.current, 1.0, airflowVelocity, oxygenPercent, fuelType, quenchAgent);
+      if (canvas1gRef.current && splitView) {
+        const s1 = computeSimState(1.0);
+        renderRealisticFlame(canvas1gRef.current, {
+          gravityG: 1.0,
+          flowVelocity: airflowVelocity,
+          oxygenPct: oxygenPercent,
+          shape: s1.shape,
+          intensity: s1.intensity,
+          fuelName: fuelType,
+          sootFactor: s1.sootFactor,
+          extinctionReason: s1.extinctionReason,
+          quenchAgent,
+          timeMs: now + 350,
+        });
       }
     };
 
@@ -108,128 +141,6 @@ export const ParticleSimulator: React.FC = () => {
       cancelAnimationFrame(animFrameRef.current);
     };
   }, [gravityG, airflowVelocity, oxygenPercent, fuelType, quenchAgent, splitView]);
-
-  const drawSimulation = (
-    canvas: HTMLCanvasElement,
-    pool: Particle[],
-    g: number,
-    flow: number,
-    o2: number,
-    fuel: string,
-    quench: string
-  ) => {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerX = width / 2;
-    const centerY = height / 2 + (g > 0.1 ? 35 : 0);
-
-    // Fade background trail
-    ctx.fillStyle = 'rgba(6, 9, 19, 0.22)';
-    ctx.fillRect(0, 0, width, height);
-
-    // Spawn new flame and soot particles
-    const spawnRate = quench !== 'none' ? 2 : Math.round(5 * (o2 / 21));
-    for (let i = 0; i < spawnRate; i++) {
-      const isSoot = Math.random() < (g === 0 ? 0.35 : 0.2);
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 0.8 + 0.2;
-
-      let vx = Math.cos(angle) * speed;
-      let vy = Math.sin(angle) * speed;
-
-      // In 1g, strong upward buoyancy
-      if (g > 0.05) {
-        vy = -Math.random() * (2.8 * g + 1.2);
-        vx = (Math.random() - 0.5) * 0.8;
-      }
-
-      // Airflow velocity pushes particles downstream (to the right)
-      vx += flow * 14;
-
-      let color = '#38bdf8'; // Microgravity blue chemiluminescence
-      if (g > 0.1) {
-        color = Math.random() < 0.6 ? '#f59e0b' : '#ef4444'; // Terrestrial yellow-orange
-      } else if (isSoot) {
-        color = '#64748b'; // Cold soot shell
-      } else if (quench === 'water_mist') {
-        color = '#bae6fd';
-      }
-
-      pool.push({
-        x: centerX + (Math.random() - 0.5) * 12,
-        y: centerY + (Math.random() - 0.5) * 12,
-        vx,
-        vy,
-        life: 0,
-        maxLife: isSoot ? 85 : 45 + Math.random() * 25,
-        size: isSoot ? Math.random() * 3 + 2 : Math.random() * 5 + 3,
-        color,
-        isSoot,
-      });
-    }
-
-    // Update & draw particles
-    for (let i = pool.length - 1; i >= 0; i--) {
-      const p = pool[i];
-      p.life++;
-
-      if (p.life >= p.maxLife) {
-        pool.splice(i, 1);
-        continue;
-      }
-
-      // Gravity buoyancy acceleration
-      if (g > 0.05) {
-        p.vy -= 0.08 * g; // buoyant upward rise
-      } else {
-        // Zero-G spherical expansion with slight deceleration
-        p.vx *= 0.985;
-        p.vy *= 0.985;
-      }
-
-      p.x += p.vx;
-      p.y += p.vy;
-
-      const progress = p.life / p.maxLife;
-      const alpha = 1 - progress;
-
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (1 - progress * 0.4), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // Draw central fuel droplet/rod source
-    ctx.save();
-    ctx.fillStyle = '#94a3b8';
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 0G Spherical Envelope Ring
-    if (g < 0.05) {
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.arc(centerX + (flow * 30), centerY, 42, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Soot shell indicator
-      ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
-      ctx.lineWidth = 1.0;
-      ctx.beginPath();
-      ctx.arc(centerX + (flow * 30), centerY, 52, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
-  };
 
   // Quick Preset Handlers
   const applyPreset = (presetName: string) => {
@@ -334,14 +245,14 @@ export const ParticleSimulator: React.FC = () => {
             <div className={`w-full grid gap-3 ${splitView ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
               {/* Primary Active Gravity Canvas */}
               <div className="relative rounded-xl overflow-hidden border border-cyan-900/50 bg-[#050813] flex flex-col items-center p-2">
-                <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded bg-black/70 border border-slate-700 font-mono text-[10px] text-cyan-300 backdrop-blur">
+                <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded bg-black/80 border border-slate-700 font-mono text-[10px] text-cyan-300">
                   {gravityG === 0 ? 'MICROGRAVITY (0G)' : gravityG === 0.16 ? 'MOON (0.16G)' : gravityG === 0.38 ? 'MARS (0.38G)' : 'EARTH (1.0G)'}
                 </div>
                 <canvas
                   ref={canvas0gRef}
                   width={320}
-                  height={280}
-                  className="w-full h-auto max-h-[300px] rounded-lg"
+                  height={270}
+                  className="w-full h-[270px] block rounded-lg"
                 />
                 <div className="w-full mt-2 text-[10px] font-mono text-slate-400 flex justify-between px-1">
                   <span>Flame Shape: {gravityG === 0 ? 'Spherical Diffusion Envelope' : 'Buoyancy Elongated'}</span>
@@ -352,14 +263,14 @@ export const ParticleSimulator: React.FC = () => {
               {/* Terrestrial 1G Comparison Canvas (if split) */}
               {splitView && (
                 <div className="relative rounded-xl overflow-hidden border border-amber-900/50 bg-[#050813] flex flex-col items-center p-2">
-                  <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded bg-black/70 border border-slate-700 font-mono text-[10px] text-amber-300 backdrop-blur">
+                  <div className="absolute top-3 left-3 z-10 px-2 py-0.5 rounded bg-black/80 border border-slate-700 font-mono text-[10px] text-amber-300">
                     TERRESTRIAL EARTH (1.0G REFERENCE)
                   </div>
                   <canvas
                     ref={canvas1gRef}
                     width={320}
-                    height={280}
-                    className="w-full h-auto max-h-[300px] rounded-lg"
+                    height={270}
+                    className="w-full h-[270px] block rounded-lg"
                   />
                   <div className="w-full mt-2 text-[10px] font-mono text-slate-400 flex justify-between px-1">
                     <span>Flame Shape: Teardrop Buoyant Plume</span>
